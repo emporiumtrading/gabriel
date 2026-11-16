@@ -1,0 +1,372 @@
+{
+  "schema_version": "gabriel-catalog-integration-manifest-v1",
+  "roles": [
+    "response_remediation",
+    "recovery_learning"
+  ],
+  "status": "implemented_unqualified",
+  "qualification_status": "not_evaluated",
+  "external_actions_allowed": false,
+  "skills": [
+    {
+      "owner_specialist": "response_remediation",
+      "catalog_index": 1,
+      "name": "plan_incident_response",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:plan_incident_response",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "response_plan"
+      ]
+    },
+    {
+      "owner_specialist": "response_remediation",
+      "catalog_index": 2,
+      "name": "select_response_playbook",
+      "accepted_implementation": "gabriel.identity.catalog_hardening.evaluate:select_response_playbook",
+      "module": "gabriel.identity.catalog_hardening",
+      "fact_types": [
+        "response_scenario"
+      ]
+    },
+    {
+      "owner_specialist": "response_remediation",
+      "catalog_index": 3,
+      "name": "recommend_endpoint_isolation",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:recommend_endpoint_isolation",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "response_target"
+      ]
+    },
+    {
+      "owner_specialist": "response_remediation",
+      "catalog_index": 4,
+      "name": "plan_account_suspension",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:plan_account_suspension",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "response_target"
+      ]
+    },
+    {
+      "owner_specialist": "response_remediation",
+      "catalog_index": 5,
+      "name": "coordinate_credential_rotation",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:coordinate_credential_rotation",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "response_target"
+      ]
+    },
+    {
+      "owner_specialist": "response_remediation",
+      "catalog_index": 6,
+      "name": "recommend_domain_blocking",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:recommend_domain_blocking",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "response_target"
+      ]
+    },
+    {
+      "owner_specialist": "response_remediation",
+      "catalog_index": 7,
+      "name": "recommend_firewall_containment",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:recommend_firewall_containment",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "response_target"
+      ]
+    },
+    {
+      "owner_specialist": "response_remediation",
+      "catalog_index": 8,
+      "name": "recommend_network_segmentation",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:recommend_network_segmentation",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "response_target"
+      ]
+    },
+    {
+      "owner_specialist": "response_remediation",
+      "catalog_index": 9,
+      "name": "coordinate_malware_quarantine",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:coordinate_malware_quarantine",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "response_target"
+      ]
+    },
+    {
+      "owner_specialist": "response_remediation",
+      "catalog_index": 10,
+      "name": "plan_vulnerability_remediation",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:plan_vulnerability_remediation",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "response_target"
+      ]
+    },
+    {
+      "owner_specialist": "response_remediation",
+      "catalog_index": 11,
+      "name": "prioritize_patch_deployment",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:prioritize_patch_deployment",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "response_target"
+      ]
+    },
+    {
+      "owner_specialist": "response_remediation",
+      "catalog_index": 12,
+      "name": "assess_emergency_change_impact",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:assess_emergency_change_impact",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "change_impact"
+      ]
+    },
+    {
+      "owner_specialist": "response_remediation",
+      "catalog_index": 13,
+      "name": "assess_business_continuity_impact",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:assess_business_continuity_impact",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "service_continuity"
+      ]
+    },
+    {
+      "owner_specialist": "response_remediation",
+      "catalog_index": 15,
+      "name": "review_containment_effectiveness",
+      "accepted_implementation": "gabriel.identity.catalog_hardening.evaluate:review_containment_effectiveness",
+      "module": "gabriel.identity.catalog_hardening",
+      "fact_types": [
+        "containment_effectiveness"
+      ]
+    },
+    {
+      "owner_specialist": "response_remediation",
+      "catalog_index": 16,
+      "name": "review_response_rollback",
+      "accepted_implementation": "gabriel.identity.catalog_hardening.evaluate:review_response_rollback",
+      "module": "gabriel.identity.catalog_hardening",
+      "fact_types": [
+        "response_rollback"
+      ]
+    },
+    {
+      "owner_specialist": "response_remediation",
+      "catalog_index": 17,
+      "name": "validate_response_authorization",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:validate_response_authorization",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "response_authorization"
+      ]
+    },
+    {
+      "owner_specialist": "response_remediation",
+      "catalog_index": 18,
+      "name": "coordinate_incident_escalation",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:coordinate_incident_escalation",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "response_escalation"
+      ]
+    },
+    {
+      "owner_specialist": "response_remediation",
+      "catalog_index": 19,
+      "name": "review_response_sla",
+      "accepted_implementation": "gabriel.identity.catalog_hardening.evaluate:review_response_sla",
+      "module": "gabriel.identity.catalog_hardening",
+      "fact_types": [
+        "response_milestone"
+      ]
+    },
+    {
+      "owner_specialist": "response_remediation",
+      "catalog_index": 20,
+      "name": "review_post_remediation_evidence",
+      "accepted_implementation": "gabriel.identity.catalog_hardening.evaluate:review_post_remediation_evidence",
+      "module": "gabriel.identity.catalog_hardening",
+      "fact_types": [
+        "post_remediation"
+      ]
+    },
+    {
+      "owner_specialist": "recovery_learning",
+      "catalog_index": 1,
+      "name": "assess_disaster_recovery_readiness",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:assess_disaster_recovery_readiness",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "recovery_readiness"
+      ]
+    },
+    {
+      "owner_specialist": "recovery_learning",
+      "catalog_index": 2,
+      "name": "verify_backup_integrity",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:verify_backup_integrity",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "backup_assurance"
+      ]
+    },
+    {
+      "owner_specialist": "recovery_learning",
+      "catalog_index": 3,
+      "name": "assess_backup_immutability",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:assess_backup_immutability",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "backup_assurance"
+      ]
+    },
+    {
+      "owner_specialist": "recovery_learning",
+      "catalog_index": 6,
+      "name": "verify_system_restoration",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:verify_system_restoration",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "recovery_validation"
+      ]
+    },
+    {
+      "owner_specialist": "recovery_learning",
+      "catalog_index": 7,
+      "name": "revalidate_endpoint_security",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:revalidate_endpoint_security",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "recovery_validation"
+      ]
+    },
+    {
+      "owner_specialist": "recovery_learning",
+      "catalog_index": 8,
+      "name": "revalidate_identity_after_compromise",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:revalidate_identity_after_compromise",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "recovery_validation"
+      ]
+    },
+    {
+      "owner_specialist": "recovery_learning",
+      "catalog_index": 9,
+      "name": "verify_persistence_removal",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:verify_persistence_removal",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "recovery_validation"
+      ]
+    },
+    {
+      "owner_specialist": "recovery_learning",
+      "catalog_index": 10,
+      "name": "reassess_post_recovery_vulnerabilities",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:reassess_post_recovery_vulnerabilities",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "recovery_validation"
+      ]
+    },
+    {
+      "owner_specialist": "recovery_learning",
+      "catalog_index": 11,
+      "name": "verify_business_service_availability",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:verify_business_service_availability",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "recovery_validation"
+      ]
+    },
+    {
+      "owner_specialist": "recovery_learning",
+      "catalog_index": 12,
+      "name": "analyze_incident_lessons",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:analyze_incident_lessons",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "learning_finding"
+      ]
+    },
+    {
+      "owner_specialist": "recovery_learning",
+      "catalog_index": 13,
+      "name": "analyze_root_cause",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:analyze_root_cause",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "learning_finding"
+      ]
+    },
+    {
+      "owner_specialist": "recovery_learning",
+      "catalog_index": 14,
+      "name": "identify_recurring_incident_patterns",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:identify_recurring_incident_patterns",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "learning_finding"
+      ]
+    },
+    {
+      "owner_specialist": "recovery_learning",
+      "catalog_index": 15,
+      "name": "reassess_security_control_effectiveness",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:reassess_security_control_effectiveness",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "learning_finding"
+      ]
+    },
+    {
+      "owner_specialist": "recovery_learning",
+      "catalog_index": 16,
+      "name": "recommend_detection_rule_improvements",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:recommend_detection_rule_improvements",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "learning_finding"
+      ]
+    },
+    {
+      "owner_specialist": "recovery_learning",
+      "catalog_index": 17,
+      "name": "improve_threat_hunting_playbook",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:improve_threat_hunting_playbook",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "learning_finding"
+      ]
+    },
+    {
+      "owner_specialist": "recovery_learning",
+      "catalog_index": 18,
+      "name": "map_recovery_dependencies",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:map_recovery_dependencies",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "recovery_dependency"
+      ]
+    },
+    {
+      "owner_specialist": "recovery_learning",
+      "catalog_index": 19,
+      "name": "track_residual_risk_acceptance",
+      "accepted_implementation": "gabriel.identity.catalog_response_recovery.evaluate:track_residual_risk_acceptance",
+      "module": "gabriel.identity.catalog_response_recovery",
+      "fact_types": [
+        "residual_risk"
+      ]
+    }
+  ]
+}
