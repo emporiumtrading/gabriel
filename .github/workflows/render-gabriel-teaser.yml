@@ -1,0 +1,39 @@
+name: Render Gabriel UI Teaser
+
+on:
+  push:
+    branches:
+      - codex/gabriel-teaser-freeware
+    paths:
+      - marketing/gabriel-teaser/**
+      - .github/workflows/render-gabriel-teaser.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    name: Render MP4 with FFmpeg
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out trailer source
+        uses: actions/checkout@v4
+
+      - name: Install open-source render dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
+
+      - name: Render authentic Gabriel UI workflow trailer
+        run: bash marketing/gabriel-teaser/render.sh
+
+      - name: Upload finished LinkedIn teaser
+        uses: actions/upload-artifact@v4
+        with:
+          name: gabriel-ui-workflow-teaser
+          path: build/Gabriel_The_Defender_UI_Workflow_Teaser.mp4
+          if-no-files-found: error
+          retention-days: 14
