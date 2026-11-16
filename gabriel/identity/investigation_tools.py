@@ -142,7 +142,7 @@ def skill_digest(name):
 
 
 def runtime_description(name):
-    prefix=name+': '
+    prefix='Use '+name+': '
     boundary=' Case-bound input only; no external action; analyst review required.'
     budget=138-len(prefix)-len(boundary)
     purpose=CATALOG[name][2]
