@@ -1,0 +1,109 @@
+{
+  "schema_version": "gabriel-catalog-assurance-v1",
+  "reviewed_commit": "0e9880ad",
+  "review_scope": [
+    "detection_engineering",
+    "identity_access",
+    "incident_scoping",
+    "hardening_kernels"
+  ],
+  "qualification_status": "not_evaluated",
+  "production_admission": false,
+  "observed_catalog_ledger": {
+    "catalog_total": 240,
+    "implemented_unqualified": 38,
+    "candidate_not_implemented": 202
+  },
+  "audited_kernel_counts": {
+    "detection_engineering": 20,
+    "identity_access_new": 19,
+    "incident_scoping_new": 4,
+    "hardening_new": 14
+  },
+  "fixed_in_this_commit": [
+    {
+      "id": "finding-reference-position",
+      "severity": "high",
+      "files": [
+        "gabriel/identity/catalog_hardening.py",
+        "gabriel/identity/catalog_scope.py"
+      ],
+      "resolution": "Finding references now retain original document positions when unrelated facts precede admitted facts."
+    },
+    {
+      "id": "identity-explicit-safety-state",
+      "severity": "medium",
+      "files": [
+        "gabriel/identity/catalog_identity.py",
+        "gabriel/identity/catalog_identity_extended.py"
+      ],
+      "resolution": "Every identity result now explicitly reports unknown incident state, unverified clocks, and no access or account mutation."
+    }
+  ],
+  "verified_static_invariants": {
+    "external_actions_authorized_false": true,
+    "model_used_false": true,
+    "source_authenticity_unverified": true,
+    "analyst_review_required": true,
+    "identity_runtime_guidance_compacted": true,
+    "detection_instruction_body_bytes": 4381,
+    "docker_gate_executed": false
+  },
+  "required_central_integration": [
+    {
+      "id": "hardening-registry-dispatch",
+      "files": [
+        "gabriel/identity/catalog_skills.py",
+        "gabriel/identity/investigation_tools.py"
+      ],
+      "action": "Import, role-bind, describe, manifest, and dispatch all 14 catalog_hardening.SKILLS."
+    },
+    {
+      "id": "image-module-copy",
+      "files": [
+        "gabriel/identity/Dockerfile"
+      ],
+      "action": "COPY catalog_identity.py, catalog_identity_extended.py, catalog_scope.py, and catalog_hardening.py into the identity image."
+    },
+    {
+      "id": "implementation-digest",
+      "files": [
+        "gabriel/identity/investigation_tools.py"
+      ],
+      "action": "Include catalog_scope.py and catalog_hardening.py in implementation_sha256; retain identity and detection source modules."
+    },
+    {
+      "id": "ledger-mapping",
+      "files": [
+        "gabriel/identity/skill_roadmap.json"
+      ],
+      "action": "Map the 19 identity and 14 hardening catalog rows to their executable entrypoints as implemented_unqualified, leaving qualification_status not_evaluated."
+    },
+    {
+      "id": "docker-test-discovery",
+      "files": [
+        ".github/workflows/gabriel-investigation-tools.yml"
+      ],
+      "action": "Add test_catalog_detection_restored.py, test_catalog_identity_restored.py, test_catalog_scope_rebuild.py, and test_catalog_hardening.py to the isolated Docker invocation."
+    },
+    {
+      "id": "zero-count-detection-contract",
+      "files": [
+        "gabriel/identity/specialist_analysis.py"
+      ],
+      "action": "Permit zero only for detection_spec field_count and dependency_count so missing metadata remains representable; keep all other generic integer facts at one through one million."
+    },
+    {
+      "id": "request-size-qualification",
+      "files": [
+        "testing/gabriel_release_trial/packet.py"
+      ],
+      "action": "Run the release-packet Docker workflow after all role guidance is wired and prove every request remains at or below 7000 bytes without raising the limit."
+    }
+  ],
+  "limitations": [
+    "No Docker daemon was available in this workspace, so the mandatory image-contained test gate was not executed.",
+    "Static source review does not qualify correctness, runtime dependencies, release compatibility, or production readiness.",
+    "The audited branch does not yet centrally register the hardening kernels or map all audited implementations in the ledger."
+  ]
+}

@@ -96,7 +96,6 @@ def evaluate(name, document, *, verified_refs=None):
     verified_digests = _verified_digests(case_id, verified_refs)
     visible_types = ROLE_TYPES[SKILLS[name]] | {'coverage'}
     visible_facts = (fact for fact in document['facts'] if fact['type'] in visible_types)
-
     tracks = defaultdict(list)
     for index, fact in enumerate(visible_facts, 1):
         if fact['type'] != 'intel_lifecycle':

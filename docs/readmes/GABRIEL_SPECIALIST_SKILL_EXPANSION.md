@@ -1,11 +1,11 @@
 # Gabriel — Specialist Skill Expansion and Implementation Specification
-**Status:** Candidate design and acceptance contract; not a claim that these skills are implemented.  
-**Updated:** 10 November 2026
+**Status:** 240 bounded implementations integrated as `implemented_unqualified`; Docker qualification and production admission remain pending.
+**Updated:** 16 November 2026
 
 ## 1. Purpose
-This document expands the existing twelve specialist roles with 20 additional candidate skills each (240 total). It is an implementation backlog for Gabriel's existing role-bound runtime skill system, not a second agent framework. The existing specialist tools and packaged usage skills described in [investigation tools](GABRIEL_INVESTIGATION_TOOLS.md) remain authoritative. Hermes remains the required supervisor for autonomous orchestration.
+This document defines and records the 20 role-bound catalog skills for each of Gabriel's twelve specialists (240 total). The bounded deterministic implementations are integrated into Gabriel's existing runtime skill system; this is not a second agent framework. The existing specialist tools and packaged usage skills described in [investigation tools](GABRIEL_INVESTIGATION_TOOLS.md) remain authoritative. Hermes remains the required supervisor for autonomous orchestration.
 
-**Do not implement or activate all 240 in one release.** Select a small, testable tranche based on actual data availability, existing tool support, analyst value and measurable acceptance. A candidate skill is not an operational capability until code, tests, manifest binding and acceptance evidence exist.
+The ledger state `implemented_unqualified` records executable code, strict schemas, role binding and tests without claiming production quality. Do not activate or production-admit the catalog as a batch. Exact-head Docker checks, independent evaluation and reviewed configuration admission remain mandatory; external actions remain disabled.
 
 ## 2. Shared skill contract
 Every executable skill must provide these fields in its manifest/spec:
@@ -56,9 +56,9 @@ A skill is accepted only when all applicable checks pass:
 - Deterministic replay/idempotency.
 - Explicit abstention with a reason and no fabricated result.
 
-## 4. Candidate skill catalog
+## 4. Implemented catalog (qualification pending)
 
-The 20 skills below each are candidate additions, not current feature claims.
+The 20 skills below each have bounded, role-bound implementations. They remain unqualified feature claims until the acceptance and production-admission gates in this document pass.
 
 ### 4.1 Telemetry Health Specialist
 1. Log source integrity verification
@@ -362,12 +362,11 @@ These are shared platform services, not additional specialist roles:
 - **Specialist evaluation engine:** exact-configuration qualification, independent held-out sets and analyst adjudication.
 
 ## 6. Integration order
-1. Reconcile this backlog against existing role-bound tools and skills; mark existing behavior as reuse rather than creating duplicate modules.
-2. Select a first tranche that can be fully supported by current local data/tools. Prefer source integrity, event deduplication/normalization, timeline cross-validation, evidence gap/visibility analysis and detection regression support.
-3. Implement each as a discrete skill module in the existing runtime skill/manifest mechanism. Keep the current Hermes dispatch and permission chokepoints.
-4. Add tests before activation. Bind exact skill/tool/source versions into configuration digests.
-5. Extend independently sealed evaluation data and analyst review; qualify the exact configuration. No fixture-based self-qualification.
-6. Only then admit a configuration through the existing reviewed production-admission process.
+1. Keep every implementation bound to the existing role/tool permission chokepoints and configuration digest.
+2. Run the complete Docker identity, release-packet, architecture, database/restart and security gates on the exact integration head.
+3. Extend independently sealed evaluation data and analyst review; qualify each exact configuration. No fixture-based self-qualification.
+4. Reconcile any failed or ambiguous evaluation without relaxing safety, evidence or 7 KB request-size limits.
+5. Only then admit reviewed configurations through the existing production-admission process.
 
 ## 7. External knowledge alignment
 The skill catalog should be maintained against versioned defensive references, not copied as a static prompt:
@@ -381,4 +380,4 @@ The skill catalog should be maintained against versioned defensive references, n
 Review source versions periodically. Record the specific version and review date used by each skill; do not make network retrieval an implicit runtime permission.
 
 ## 8. Definition of done
-A skill is not “done” because its Markdown exists. It is done only when its implementation, strict schema, role/tool permission, provenance checks, positive and negative tests, adversarial tests, configuration digest, Docker test evidence, analyst review and exact-configuration qualification status are recorded. Until then, it remains a candidate in this backlog.
+A skill is not production-ready because its Markdown and implementation exist. It is done only when its strict schema, role/tool permission, provenance checks, positive and negative tests, adversarial tests, configuration digest, Docker test evidence, analyst review and exact-configuration qualification status are recorded. Until then, the ledger must retain `implemented_unqualified`, `not_evaluated`, production admission false and external actions false.

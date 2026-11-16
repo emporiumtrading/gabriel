@@ -1,6 +1,7 @@
 """Role-bound tool catalog, packaged skills and checked local evidence execution."""
 import base64
 from datetime import datetime
+from functools import lru_cache
 from hashlib import sha256
 import http.client
 import json
@@ -8,6 +9,15 @@ import math
 from pathlib import Path
 
 from gabriel.identity.evidence_store import canonical
+from gabriel.identity.catalog_dfir_artifacts import SKILLS as DFIR_ARTIFACT_SKILLS
+from gabriel.identity.catalog_exposure_cloud_extended import SKILLS as EXPOSURE_CLOUD_SKILLS
+from gabriel.identity.catalog_hardening import SKILLS as HARDENING_SKILLS
+from gabriel.identity.catalog_identity import SKILLS as IDENTITY_SKILLS
+from gabriel.identity.catalog_intel_hunt import SKILLS as INTEL_HUNT_SKILLS
+from gabriel.identity.catalog_response_recovery import SKILLS as RESPONSE_RECOVERY_SKILLS
+from gabriel.identity.catalog_scope_extended import SKILLS as SCOPE_EXTENDED_SKILLS
+from gabriel.identity.catalog_skills import SKILLS as CATALOG_SKILLS
+from gabriel.identity.catalog_telemetry_triage import SKILLS as TELEMETRY_TRIAGE_SKILLS
 from gabriel.identity.grounded_skills import SKILL_NAMES as GROUNDED_SKILLS, evaluate as grounded_evaluate
 from gabriel.identity.model_evaluation import digest
 from gabriel.identity.service import AccessDenied,_audit,connection,identifier
@@ -15,22 +25,25 @@ from gabriel.identity.specialist_analysis import ROLE_TYPES,analyze
 from gabriel.identity.specialist_analysis_runs import verified_input
 from gabriel.identity.specialist_contracts import ROLES,role_name
 
-VERSION='gabriel-investigation-toolkit-v2'
+VERSION='gabriel-investigation-toolkit-v3'
 SKILLS=Path(__file__).with_name('investigation_skills')
 REMOTE={'scan_artifacts','inspect_packets','inspect_logs'}
+CATALOG_RUNTIME_GUIDANCE=('Catalog tools review only supplied case-bound typed facts. Verify sources, clocks, entity binding, baselines and authorization. Treat source authenticity and current posture as unverified. Never perform external actions; every result requires analyst review.')
 EXTRA={
-    'telemetry_health':('correlate_events','inspect_logs','assess_visibility_gaps','map_source_coverage'),
-    'alert_triage':('inspect_logs','correlate_events','scan_artifacts','find_duplicate_facts','prioritize_escalation_queue'),
-    'incident_scoping':('correlate_events','inspect_logs','inspect_packets','find_duplicate_facts','cross_check_timeline','review_incident_evidence_gaps','normalize_incident_timeline'),
-    'threat_intelligence':('scan_artifacts','inspect_packets','review_indicator_freshness','review_intelligence_lifecycle'),
-    'threat_hunting':('inspect_logs','scan_artifacts','inspect_packets','summarize_hunt_hypotheses','review_powershell_activity'),
-    'dfir_evidence':('scan_artifacts','inspect_packets','audit_provenance','cross_check_timeline','validate_evidence_provenance'),
-    'detection_engineering':('scan_artifacts','inspect_logs','review_detection_regression','analyze_false_negatives'),
-    'exposure_vulnerability':('assess_exposure','review_exposure_context','review_vulnerability_sla'),
-    'identity_access':('inspect_logs','correlate_events','find_duplicate_facts','review_privileged_access_changes'),
-    'cloud_supply_chain':('scan_artifacts','correlate_events','review_cloud_change_assertions','assess_cloud_storage_exposure'),
-    'response_remediation':('assess_exposure','correlate_events','review_response_dependencies','analyze_response_dependencies'),
-    'recovery_learning':('correlate_events','review_recovery_baselines','review_incident_closure_evidence','review_recovery_point','review_recovery_time'),
+    'telemetry_health':('correlate_events','inspect_logs','assess_visibility_gaps','map_source_coverage')+tuple(name for name,role in TELEMETRY_TRIAGE_SKILLS.items() if role=='telemetry_health'),
+    'alert_triage':('inspect_logs','correlate_events','scan_artifacts','find_duplicate_facts','prioritize_escalation_queue')+tuple(name for name,role in TELEMETRY_TRIAGE_SKILLS.items() if role=='alert_triage'),
+    'incident_scoping':('correlate_events','inspect_logs','inspect_packets','find_duplicate_facts','cross_check_timeline','review_incident_evidence_gaps','normalize_incident_timeline',
+        'correlate_system_events','map_asset_relationships','review_process_parentage','reconstruct_reported_remote_paths')+tuple(SCOPE_EXTENDED_SKILLS),
+    'threat_intelligence':('scan_artifacts','inspect_packets','review_indicator_freshness','review_intelligence_lifecycle')+tuple(name for name,role in INTEL_HUNT_SKILLS.items() if role=='threat_intelligence'),
+    'threat_hunting':('inspect_logs','scan_artifacts','inspect_packets','summarize_hunt_hypotheses','review_powershell_activity')+tuple(name for name,role in INTEL_HUNT_SKILLS.items() if role=='threat_hunting'),
+    'dfir_evidence':('scan_artifacts','inspect_packets','audit_provenance','cross_check_timeline','validate_evidence_provenance')+tuple(DFIR_ARTIFACT_SKILLS),
+    'detection_engineering':('scan_artifacts','inspect_logs','review_detection_regression','analyze_false_negatives',
+        'map_attack_coverage','validate_sigma_subset','compile_yara_rule','validate_kql_subset','validate_spl_subset','validate_eql_subset','evaluate_behavioral_rule','evaluate_correlation_rule','review_detection_as_code','review_detection_fixture_divergence','review_detection_optimization','review_false_positive_fixtures','review_detection_thresholds','map_detection_dependencies','map_adversary_emulation','review_detection_engine_drift','audit_detection_versions','benchmark_detection_performance','prioritize_detection_gaps'),
+    'exposure_vulnerability':('assess_exposure','review_exposure_context','review_vulnerability_sla')+tuple(name for name,role in HARDENING_SKILLS.items() if role=='exposure_vulnerability')+tuple(name for name,role in EXPOSURE_CLOUD_SKILLS.items() if role=='exposure_vulnerability'),
+    'identity_access':('inspect_logs','correlate_events','find_duplicate_facts','review_privileged_access_changes')+tuple(IDENTITY_SKILLS),
+    'cloud_supply_chain':('scan_artifacts','correlate_events','review_cloud_change_assertions','assess_cloud_storage_exposure')+tuple(name for name,role in HARDENING_SKILLS.items() if role=='cloud_supply_chain')+tuple(name for name,role in EXPOSURE_CLOUD_SKILLS.items() if role=='cloud_supply_chain'),
+    'response_remediation':('assess_exposure','correlate_events','review_response_dependencies','analyze_response_dependencies')+tuple(name for name,role in HARDENING_SKILLS.items() if role=='response_remediation')+tuple(name for name,role in RESPONSE_RECOVERY_SKILLS.items() if role=='response_remediation'),
+    'recovery_learning':('correlate_events','review_recovery_baselines','review_incident_closure_evidence','review_recovery_point','review_recovery_time')+tuple(name for name,role in RESPONSE_RECOVERY_SKILLS.items() if role=='recovery_learning'),
 }
 TOOLS={r:('verify_sources','review_rules','review_memory')+(() if r=='recovery_learning' else ('inspect_timeline',))+('inspect_toolkit',)+EXTRA[r] for r in ROLES}
 CATALOG={
@@ -65,31 +78,94 @@ CATALOG={
     'map_source_coverage':('Gabriel','MIT','Map supplied source coverage windows and report gaps or conflicts.'),
     'validate_evidence_provenance':('Gabriel','MIT','Review locally verified artifact provenance and conflicting assertions.'),
     'analyze_false_negatives':('Gabriel','MIT','Review supplied versioned detection fixtures for missed expected matches.'),
+    'map_attack_coverage':('Gabriel','MIT','Review bounded detection 01 facts; no live engine action.'),
+    'validate_sigma_subset':('Gabriel','MIT','Review bounded detection 02 facts; no live engine action.'),
+    'compile_yara_rule':('Gabriel','MIT','Review bounded detection 03 facts; no live engine action.'),
+    'validate_kql_subset':('Gabriel','MIT','Review bounded detection 04 facts; no live engine action.'),
+    'validate_spl_subset':('Gabriel','MIT','Review bounded detection 05 facts; no live engine action.'),
+    'validate_eql_subset':('Gabriel','MIT','Review bounded detection 06 facts; no live engine action.'),
+    'evaluate_behavioral_rule':('Gabriel','MIT','Review bounded detection 07 facts; no live engine action.'),
+    'evaluate_correlation_rule':('Gabriel','MIT','Review bounded detection 08 facts; no live engine action.'),
+    'review_detection_as_code':('Gabriel','MIT','Review bounded detection 09 facts; no live engine action.'),
+    'review_detection_fixture_divergence':('Gabriel','MIT','Review bounded detection 10 facts; no live engine action.'),
+    'review_detection_optimization':('Gabriel','MIT','Review bounded detection 11 facts; no live engine action.'),
+    'review_false_positive_fixtures':('Gabriel','MIT','Review bounded detection 13 facts; no live engine action.'),
+    'review_detection_thresholds':('Gabriel','MIT','Review bounded detection 14 facts; no live engine action.'),
+    'map_detection_dependencies':('Gabriel','MIT','Review bounded detection 15 facts; no live engine action.'),
+    'map_adversary_emulation':('Gabriel','MIT','Review bounded detection 16 facts; no live engine action.'),
+    'review_detection_engine_drift':('Gabriel','MIT','Review bounded detection 17 facts; no live engine action.'),
+    'audit_detection_versions':('Gabriel','MIT','Review bounded detection 18 facts; no live engine action.'),
+    'benchmark_detection_performance':('Gabriel','MIT','Review bounded detection 19 facts; no live engine action.'),
+    'prioritize_detection_gaps':('Gabriel','MIT','Review bounded detection 20 facts; no live engine action.'),
     'prioritize_escalation_queue':('Gabriel','MIT','Prioritize supplied unresolved alerts by reported severity, age and unknown state; no suppression or automatic escalation.'),
     'review_incident_evidence_gaps':('Gabriel','MIT','Identify missing entity references and fact categories in case-bound supplied scope; never infer complete visibility.'),
+    'correlate_system_events':('Gabriel','MIT','Review supplied same-entity cross-source event proximity; no causality or clock attestation.'),
+    'map_asset_relationships':('Gabriel','MIT','Map reported entity links without asserting complete enterprise inventory.'),
+    'review_process_parentage':('Gabriel','MIT','Review reported process parent links and conflicting parent assertions.'),
+    'reconstruct_reported_remote_paths':('Gabriel','MIT','Enumerate bounded reported remote-session paths; movement remains unverified.'),
     'review_privileged_access_changes':('Gabriel','MIT','Review reported privilege grants and MFA changes with uncertain authorization; no account mutation.'),
     'analyze_response_dependencies':('Gabriel','MIT','Check reported target binding, dependencies and recovery before proposing action; execution remains denied.'),
     'review_incident_closure_evidence':('Gabriel','MIT','Review reported restore, service and control checks; never independently certify recovery or close incidents.'),
 }
 
 
+CATALOG.update({name:('Gabriel','MIT','Review supplied identity evidence for '+name.replace('_',' ')+'; no access changes.') for name in IDENTITY_SKILLS})
+CATALOG.update({name:('Gabriel','MIT','Review supplied case-bound evidence for '+name.replace('_',' ')+'; no external action is authorized.') for name in HARDENING_SKILLS})
+CATALOG.update({name:('Gabriel','MIT','Review supplied case-bound evidence for '+name.replace('_',' ')+'; no external action is authorized.') for name in TELEMETRY_TRIAGE_SKILLS})
+CATALOG.update({name:('Gabriel','MIT','Review supplied case-bound evidence for '+name.replace('_',' ')+'; no external action is authorized.') for name in INTEL_HUNT_SKILLS})
+CATALOG.update({name:('Gabriel','MIT','Review supplied case-bound evidence for '+name.replace('_',' ')+'; no external action is authorized.') for name in EXPOSURE_CLOUD_SKILLS})
+CATALOG.update({name:('Gabriel','MIT','Review supplied case-bound evidence for '+name.replace('_',' ')+'; no external action is authorized.') for name in RESPONSE_RECOVERY_SKILLS})
+CATALOG.update({name:('Gabriel','MIT','Review supplied case-bound evidence for '+name.replace('_',' ')+'; no external action is authorized.') for name in DFIR_ARTIFACT_SKILLS})
+CATALOG.update({name:('Gabriel','MIT','Review supplied case-bound evidence for '+name.replace('_',' ')+'; no external action is authorized.') for name in SCOPE_EXTENDED_SKILLS})
+
+
+IMPLEMENTATION_PATHS=(Path(__file__),Path(__file__).parents[1]/'toolbox'/'engine.py',Path(__file__).parents[1]/'toolbox'/'server.py',Path(__file__).with_name('reviewed_memory.py'),Path(__file__).with_name('memory.py'),Path(__file__).with_name('grounded_skills.py'),Path(__file__).with_name('catalog_skills.py'),
+    Path(__file__).with_name('catalog_dfir.py'),Path(__file__).with_name('catalog_identity.py'),Path(__file__).with_name('catalog_identity_extended.py'),Path(__file__).with_name('catalog_detection.py'),
+    Path(__file__).with_name('catalog_detection_sources.py'),Path(__file__).with_name('catalog_scope.py'),Path(__file__).with_name('catalog_hardening.py'),Path(__file__).with_name('catalog_telemetry_triage.py'),
+    Path(__file__).with_name('catalog_telemetry.py'),Path(__file__).with_name('catalog_intelligence.py'),
+    Path(__file__).with_name('catalog_exposure.py'),Path(__file__).with_name('catalog_cloud.py'),
+    Path(__file__).with_name('catalog_timeline.py'),Path(__file__).with_name('catalog_hunting.py'),Path(__file__).with_name('catalog_recovery.py'),
+    Path(__file__).with_name('catalog_intel_hunt.py'),Path(__file__).with_name('catalog_exposure_cloud_extended.py'),
+    Path(__file__).with_name('catalog_response_recovery.py'),Path(__file__).with_name('catalog_dfir_artifacts.py'),
+    Path(__file__).with_name('catalog_scope_extended.py'),Path(__file__).with_name('dfir_bounded_parsers.py'),
+    Path(__file__).with_name('specialist_analysis.py'))
+
+
+@lru_cache(maxsize=1)
+def implementation_digest():
+    return digest([sha256(path.read_bytes()).hexdigest() for path in IMPLEMENTATION_PATHS])
+
+
+@lru_cache(maxsize=None)
+def skill_digest(name):
+    return sha256((SKILLS/name/'SKILL.md').read_bytes()).hexdigest()
+
+
+def runtime_description(name):
+    prefix='Use '+name+': '
+    boundary=' Case-bound input only; no external action; analyst review required.'
+    budget=138-len(prefix)-len(boundary)
+    purpose=CATALOG[name][2]
+    if len(purpose)>budget:
+        purpose=purpose[:budget].rsplit(' ',1)[0].rstrip('.,;:')+'.'
+    return prefix+purpose+boundary
+
+
 def manifest(role):
     role_name(role)
     return [dict(name=n,engine=CATALOG[n][0],license=CATALOG[n][1],selection=CATALOG[n][2],
-        skill_sha256=sha256((SKILLS/n/'SKILL.md').read_bytes()).hexdigest(),
+        skill_sha256=skill_digest(n),
         input='job_bound_local_sources_no_model_arguments',version=VERSION,
         purpose=CATALOG[n][2],when_to_use=CATALOG[n][2],args_format='requested_actions=[tool_name]; runtime supplies job-bound evidence; no arbitrary arguments',
-        description=(SKILLS/n/'SKILL.md').read_text().split('---',2)[-1].strip(),
-        implementation_sha256=digest([sha256(p.read_bytes()).hexdigest() for p in (Path(__file__),Path(__file__).parents[1]/'toolbox'/'engine.py',Path(__file__).parents[1]/'toolbox'/'server.py',Path(__file__).with_name('reviewed_memory.py'),Path(__file__).with_name('memory.py'),Path(__file__).with_name('grounded_skills.py'),Path(__file__).with_name('catalog_skills.py'),
-            Path(__file__).with_name('catalog_dfir.py'),Path(__file__).with_name('catalog_detection.py'),
-            Path(__file__).with_name('catalog_telemetry.py'),Path(__file__).with_name('catalog_intelligence.py'),
-            Path(__file__).with_name('catalog_exposure.py'),Path(__file__).with_name('catalog_cloud.py'),
-            Path(__file__).with_name('catalog_timeline.py'),Path(__file__).with_name('catalog_hunting.py'),Path(__file__).with_name('catalog_recovery.py'),Path(__file__).with_name('specialist_analysis.py'))])) for n in TOOLS[role]]
+        description=(CATALOG_RUNTIME_GUIDANCE if n in CATALOG_SKILLS else runtime_description(n)),
+        implementation_sha256=implementation_digest()) for n in TOOLS[role]]
 
 
 def instructions(role):
-    # The actual packaged skill is model context, not a decorative documentation link.
-    return '\n'.join((SKILLS/n/'SKILL.md').read_text().split('---',2)[-1].strip() for n in TOOLS[role])
+    # Compact purpose lines preserve the admitted contract without exceeding the fixed model-request ceiling.
+    names=tuple(n for n in TOOLS[role] if n not in CATALOG_SKILLS)
+    value='\n'.join(runtime_description(n) for n in names)
+    return value+('\n'+CATALOG_RUNTIME_GUIDANCE if any(n in CATALOG_SKILLS for n in TOOLS[role]) else '')
 
 
 def remote(name,data=None):

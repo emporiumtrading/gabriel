@@ -1,0 +1,6 @@
+---
+name: analyze_prefetch_execution_artifacts
+version: 1
+license: MIT
+---
+Review only supplied case-bound prefetch and execution artifact analysis assertions. Preserve evidence references, report conflicts and limitations, and require analyst review. Never execute artifacts, mutate a console, authorize response, or claim source authenticity.

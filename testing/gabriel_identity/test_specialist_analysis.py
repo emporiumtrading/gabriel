@@ -5,7 +5,8 @@ from uuid import uuid4
 import pytest
 
 from gabriel.identity.service import InvalidIdentityInput
-from gabriel.identity.specialist_analysis import ROLE_TYPES, analyze, validate_document
+from gabriel.identity.specialist_analysis import (OPAQUE_FACT_FIELDS, ROLE_TYPES, analyze,
+                                                   fact_data_for_model, validate_document)
 from gabriel.identity.specialist_contracts import ROLES
 
 
@@ -101,3 +102,14 @@ def test_scoping_null_and_repeated_entity_keys_do_not_inflate_unique_entities():
     result=analyze('incident_scoping',doc,'input')
     assert '1 supplied entity keys across 3 facts' in result['observations'][0]['statement']
     assert 'not independent corroboration' in ' '.join(result['uncertainty'])
+
+
+def test_all_opaque_catalog_fields_are_removed_from_model_projection():
+    for kind, hidden in OPAQUE_FACT_FIELDS.items():
+        private = {field: f'private-{field}' for field in hidden}
+        projected = fact_data_for_model({'type': kind, 'data': dict(private, visible='retained')})
+        assert projected['visible'] == 'retained'
+        assert projected['opaque_identifiers_supplied'] == len(hidden)
+        assert not hidden.intersection(projected)
+        for value in private.values():
+            assert value not in str(projected)

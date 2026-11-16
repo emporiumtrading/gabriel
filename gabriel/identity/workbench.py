@@ -300,6 +300,8 @@ class Workbench:
                     if set(fields)!={'csrf','request_id','role','input_evidence_id','model','key_scope','approved'} or fields['approved']!='yes':raise AccessDenied('specialist_ai_export_consent_required')
                     result=agents.orchestrate(self.service,self._provider_vault,self._token,case_id,fields['request_id'],fields['input_evidence_id'],model=fields['model'],key_scope=fields['key_scope'],approved=True) if fields['role']=='all' else agents.start(self.service,self._provider_vault,self._token,case_id,fields['request_id'],fields['role'],fields['input_evidence_id'],model=fields['model'],key_scope=fields['key_scope'],approved=True)
                 body+='<p id="agent-result">'+e(result.get('state','stopped'))+'</p>'
+                if job_id and operation=='stop':
+                    return '200 OK',self._page('Specialist AI agents',body,principal),[]
                 for step in result.get('steps',[]):
                     body+='<p>Round '+e(step['round'])+' · '+e(step['disposition'])+' · <a href="/cases/'+case_id+'/evidence/'+e(step['answer_evidence_id'])+'">Review unreviewed AI answer</a></p>'
             elif method!='GET':raise AccessDenied('workbench_route_denied')
