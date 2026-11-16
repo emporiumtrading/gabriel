@@ -159,7 +159,7 @@ def test_hunt_correlates_only_same_entity_and_supplied_correlation_alias():
 
     assert result['reported_item_count'] == 2
     assert result['status_counts'] == {
-        'reported_authorized_activity': 1,
+        'reported_unexpected_authorized_activity': 1,
         'reported_unauthorized_activity': 1,
     }
     assert result['findings'][0]['reported_signal_categories'] == ['network', 'staging']

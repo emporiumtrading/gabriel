@@ -50,8 +50,8 @@ def _review(document, kind, timestamp_field, metric, verification_field):
     validate_document(document, document.get('case_id') if type(document) is dict else None)
     visible = ROLE_TYPES['recovery_learning'] | {'coverage'}
     events = defaultdict(dict)
-    for i, fact in enumerate(document['facts'], 1):
-        if fact['type'] not in visible or fact['type'] != kind:
+    for i, fact in enumerate((f for f in document['facts'] if f['type'] in visible), 1):
+        if fact['type'] != kind:
             continue
         data = fact['data']
         disrupted_at = at(data['disrupted_at'])

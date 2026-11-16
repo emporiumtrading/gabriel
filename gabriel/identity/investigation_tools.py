@@ -1,6 +1,7 @@
 """Role-bound tool catalog, packaged skills and checked local evidence execution."""
 import base64
 from datetime import datetime
+from functools import lru_cache
 from hashlib import sha256
 import http.client
 import json
@@ -117,29 +118,53 @@ CATALOG.update({name:('Gabriel','MIT','Review supplied case-bound evidence for '
 CATALOG.update({name:('Gabriel','MIT','Review supplied case-bound evidence for '+name.replace('_',' ')+'; no external action is authorized.') for name in DFIR_ARTIFACT_SKILLS})
 CATALOG.update({name:('Gabriel','MIT','Review supplied case-bound evidence for '+name.replace('_',' ')+'; no external action is authorized.') for name in SCOPE_EXTENDED_SKILLS})
 
+
+IMPLEMENTATION_PATHS=(Path(__file__),Path(__file__).parents[1]/'toolbox'/'engine.py',Path(__file__).parents[1]/'toolbox'/'server.py',Path(__file__).with_name('reviewed_memory.py'),Path(__file__).with_name('memory.py'),Path(__file__).with_name('grounded_skills.py'),Path(__file__).with_name('catalog_skills.py'),
+    Path(__file__).with_name('catalog_dfir.py'),Path(__file__).with_name('catalog_identity.py'),Path(__file__).with_name('catalog_identity_extended.py'),Path(__file__).with_name('catalog_detection.py'),
+    Path(__file__).with_name('catalog_detection_sources.py'),Path(__file__).with_name('catalog_scope.py'),Path(__file__).with_name('catalog_hardening.py'),Path(__file__).with_name('catalog_telemetry_triage.py'),
+    Path(__file__).with_name('catalog_telemetry.py'),Path(__file__).with_name('catalog_intelligence.py'),
+    Path(__file__).with_name('catalog_exposure.py'),Path(__file__).with_name('catalog_cloud.py'),
+    Path(__file__).with_name('catalog_timeline.py'),Path(__file__).with_name('catalog_hunting.py'),Path(__file__).with_name('catalog_recovery.py'),
+    Path(__file__).with_name('catalog_intel_hunt.py'),Path(__file__).with_name('catalog_exposure_cloud_extended.py'),
+    Path(__file__).with_name('catalog_response_recovery.py'),Path(__file__).with_name('catalog_dfir_artifacts.py'),
+    Path(__file__).with_name('catalog_scope_extended.py'),Path(__file__).with_name('dfir_bounded_parsers.py'),
+    Path(__file__).with_name('specialist_analysis.py'))
+
+
+@lru_cache(maxsize=1)
+def implementation_digest():
+    return digest([sha256(path.read_bytes()).hexdigest() for path in IMPLEMENTATION_PATHS])
+
+
+@lru_cache(maxsize=None)
+def skill_digest(name):
+    return sha256((SKILLS/name/'SKILL.md').read_bytes()).hexdigest()
+
+
+def runtime_description(name):
+    prefix=name+': '
+    boundary=' Case-bound input only; no external action; analyst review required.'
+    budget=138-len(prefix)-len(boundary)
+    purpose=CATALOG[name][2]
+    if len(purpose)>budget:
+        purpose=purpose[:budget].rsplit(' ',1)[0].rstrip('.,;:')+'.'
+    return prefix+purpose+boundary
+
+
 def manifest(role):
     role_name(role)
     return [dict(name=n,engine=CATALOG[n][0],license=CATALOG[n][1],selection=CATALOG[n][2],
-        skill_sha256=sha256((SKILLS/n/'SKILL.md').read_bytes()).hexdigest(),
+        skill_sha256=skill_digest(n),
         input='job_bound_local_sources_no_model_arguments',version=VERSION,
         purpose=CATALOG[n][2],when_to_use=CATALOG[n][2],args_format='requested_actions=[tool_name]; runtime supplies job-bound evidence; no arbitrary arguments',
-        description=(CATALOG_RUNTIME_GUIDANCE if n in CATALOG_SKILLS else (SKILLS/n/'SKILL.md').read_text().split('---',2)[-1].strip()),
-        implementation_sha256=digest([sha256(p.read_bytes()).hexdigest() for p in (Path(__file__),Path(__file__).parents[1]/'toolbox'/'engine.py',Path(__file__).parents[1]/'toolbox'/'server.py',Path(__file__).with_name('reviewed_memory.py'),Path(__file__).with_name('memory.py'),Path(__file__).with_name('grounded_skills.py'),Path(__file__).with_name('catalog_skills.py'),
-            Path(__file__).with_name('catalog_dfir.py'),Path(__file__).with_name('catalog_identity.py'),Path(__file__).with_name('catalog_identity_extended.py'),Path(__file__).with_name('catalog_detection.py'),
-            Path(__file__).with_name('catalog_detection_sources.py'),Path(__file__).with_name('catalog_scope.py'),Path(__file__).with_name('catalog_hardening.py'),Path(__file__).with_name('catalog_telemetry_triage.py'),
-            Path(__file__).with_name('catalog_telemetry.py'),Path(__file__).with_name('catalog_intelligence.py'),
-            Path(__file__).with_name('catalog_exposure.py'),Path(__file__).with_name('catalog_cloud.py'),
-            Path(__file__).with_name('catalog_timeline.py'),Path(__file__).with_name('catalog_hunting.py'),Path(__file__).with_name('catalog_recovery.py'),
-            Path(__file__).with_name('catalog_intel_hunt.py'),Path(__file__).with_name('catalog_exposure_cloud_extended.py'),
-            Path(__file__).with_name('catalog_response_recovery.py'),Path(__file__).with_name('catalog_dfir_artifacts.py'),
-            Path(__file__).with_name('catalog_scope_extended.py'),Path(__file__).with_name('dfir_bounded_parsers.py'),
-            Path(__file__).with_name('specialist_analysis.py'))])) for n in TOOLS[role]]
+        description=(CATALOG_RUNTIME_GUIDANCE if n in CATALOG_SKILLS else runtime_description(n)),
+        implementation_sha256=implementation_digest()) for n in TOOLS[role]]
 
 
 def instructions(role):
     # Compact purpose lines preserve the admitted contract without exceeding the fixed model-request ceiling.
     names=tuple(n for n in TOOLS[role] if n not in CATALOG_SKILLS)
-    value='\n'.join(n+': '+CATALOG[n][2] for n in names)
+    value='\n'.join(runtime_description(n) for n in names)
     return value+('\n'+CATALOG_RUNTIME_GUIDANCE if any(n in CATALOG_SKILLS for n in TOOLS[role]) else '')
 
 

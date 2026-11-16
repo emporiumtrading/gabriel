@@ -181,8 +181,9 @@ def evaluate(name, document, *, verified_refs=None):
     role, kind, field, selected = SKILL_SPECS[name]
     as_of = _at(document['as_of'])
     grouped = defaultdict(list)
-    for index, fact in enumerate(document['facts'], 1):
-        if fact['type'] in ROLE_TYPES[role] and fact['type'] == kind and (name != 'verify_image_provenance'
+    visible = (fact for fact in document['facts'] if fact['type'] in ROLE_TYPES[role])
+    for index, fact in enumerate(visible, 1):
+        if fact['type'] == kind and (name != 'verify_image_provenance'
                                      or fact['data']['artifact_kind'] == 'image'):
             grouped[fact['entity_id']].append((fact, f'o{index}'))
 

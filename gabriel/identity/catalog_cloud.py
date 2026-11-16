@@ -95,9 +95,10 @@ def evaluate(name, document, *, verified_refs=None):
     as_of = at(document['as_of'])
     verified_digests = _verified_digests(case_id, verified_refs)
     visible_types = ROLE_TYPES[SKILLS[name]] | {'coverage'}
+    visible_facts = (fact for fact in document['facts'] if fact['type'] in visible_types)
     paths = defaultdict(list)
-    for index, fact in enumerate(document['facts'], 1):
-        if fact['type'] not in visible_types or fact['type'] != 'cloud_storage_access':
+    for index, fact in enumerate(visible_facts, 1):
+        if fact['type'] != 'cloud_storage_access':
             continue
         data = fact['data']
         assertion = (data['policy_digest'], at(data['valid_until']), data['path'], data['network'], data['guard'],

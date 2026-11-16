@@ -9,7 +9,7 @@ LATER='2026-10-21T12:00:00Z'
 
 def packet(kind,data,*,observed='2026-10-20T11:00:00Z'):
     fact=dict(id=str(uuid4()),type=kind,evidence_id=str(uuid4()),evidence_digest='a'*64,
-              entity_id=str(uuid4()),event_time=observed,data=data)
+              entity_id=str(uuid4()),event_time=observed,data=dict(data))
     return dict(version='specialist-facts-v1',case_id=str(uuid4()),as_of=NOW,facts=[fact])
 
 def second(doc,**changes):

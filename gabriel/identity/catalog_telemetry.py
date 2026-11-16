@@ -36,14 +36,13 @@ def map_source_coverage(document):
 
     case_id = document.get('case_id') if type(document) is dict else None
     validate_document(document, case_id)
-    observations = [(index, fact) for index, fact in enumerate(document['facts'], 1)
-                    if fact['type'] in ROLE_TYPES['telemetry_health']]
+    observations = [fact for fact in document['facts'] if fact['type'] in ROLE_TYPES['telemetry_health']]
     aliases = {
         value: f'e{index}'
-        for index, value in enumerate(sorted({fact['entity_id'] for _, fact in observations if fact['entity_id']}), 1)
+        for index, value in enumerate(sorted({fact['entity_id'] for fact in observations if fact['entity_id']}), 1)
     }
     grouped = defaultdict(list)
-    for index, fact in observations:
+    for index, fact in enumerate(observations, 1):
         if fact['type'] != 'source_coverage':
             continue
         data = fact['data']

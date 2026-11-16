@@ -24,8 +24,8 @@ def review_powershell_activity(document):
     validate_document(document, case_id)
     visible_types = ROLE_TYPES['threat_hunting'] | {'coverage'}
     processes = defaultdict(lambda: defaultdict(dict))
-    for index, fact in enumerate(document['facts'], 1):
-        if fact['type'] not in visible_types or fact['type'] != 'powershell_execution':
+    for index, fact in enumerate((f for f in document['facts'] if f['type'] in visible_types), 1):
+        if fact['type'] != 'powershell_execution':
             continue
         data = fact['data']
         identity = (fact['entity_id'], data['process_instance_id'])
