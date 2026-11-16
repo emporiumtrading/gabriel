@@ -5,12 +5,12 @@ on:
     branches:
       - codex/gabriel-teaser-freeware
     paths:
-      - marketing/gabriel-teaser/**
+      - marketing/gabriel-teaser/render.sh
       - .github/workflows/render-gabriel-teaser.yml
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   render:
@@ -37,3 +37,16 @@ jobs:
           path: build/Gabriel_The_Defender_UI_Workflow_Teaser.mp4
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish finished MP4 on the trailer branch
+        run: |
+          cp build/Gabriel_The_Defender_UI_Workflow_Teaser.mp4 marketing/gabriel-teaser/Gabriel_The_Defender_UI_Workflow_Teaser.mp4
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f marketing/gabriel-teaser/Gabriel_The_Defender_UI_Workflow_Teaser.mp4
+          if git diff --cached --quiet; then
+            echo "Rendered MP4 is already current."
+            exit 0
+          fi
+          git commit -m "marketing: publish rendered Gabriel UI teaser"
+          git push
