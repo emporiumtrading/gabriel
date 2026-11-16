@@ -5,16 +5,21 @@ effects. A caller must verify the referenced evidence and current case authority
 """
 from collections import Counter
 from datetime import datetime, timezone
+from hashlib import sha256
 import re
 from uuid import UUID
 
+from gabriel.identity.catalog_scope import SCOPE_LINK_SCHEMA
 from gabriel.identity.catalog_cloud import CLOUD_STORAGE_ACCESS_SCHEMA, validate_cloud_storage_access
 from gabriel.identity.catalog_exposure import VULNERABILITY_SLA_SCHEMA, validate_vulnerability_sla
+from gabriel.identity.catalog_hardening import SCHEMAS as HARDENING_SCHEMAS, ROLE_TYPES as HARDENING_TYPES, validate_fact as validate_hardening_fact
 from gabriel.identity.catalog_hunting import POWERSHELL_EXECUTION_SCHEMA
 from gabriel.identity.catalog_intelligence import INTEL_LIFECYCLE_SCHEMA, validate_intel_lifecycle
 from gabriel.identity.catalog_recovery import (RECOVERY_POINT_SCHEMA, RECOVERY_TIME_SCHEMA,
                                                validate_recovery_point, validate_recovery_time)
 from gabriel.identity.catalog_telemetry import SOURCE_COVERAGE_SCHEMA, validate_source_coverage
+from gabriel.identity.catalog_telemetry_triage import (SCHEMAS as TELEMETRY_TRIAGE_SCHEMAS,
+    ROLE_TYPES as TELEMETRY_TRIAGE_TYPES, validate_fact as validate_telemetry_triage_fact)
 from gabriel.identity.catalog_timeline import CLOCK_LIMIT_MS, TIMELINE_EVENT_SCHEMA, validate_timeline_event
 from gabriel.identity.evidence_store import canonical
 from gabriel.identity.service import InvalidIdentityInput
@@ -24,6 +29,8 @@ CONTRACT = 'specialist-analysis-v2'
 SEVERITIES = {'informational', 'low', 'medium', 'high', 'critical'}
 YES_NO = {'yes', 'no', 'unknown'}
 SCHEMAS = {
+    **HARDENING_SCHEMAS,
+    **TELEMETRY_TRIAGE_SCHEMAS,
     'coverage': {'state': {'available', 'stale', 'missing'}},
     'source_coverage': SOURCE_COVERAGE_SCHEMA,
     'alert': {'severity': SEVERITIES, 'state': {'open', 'resolved', 'unknown'}},
@@ -37,11 +44,49 @@ SCHEMAS = {
     'detection': {'cohort': {'malicious', 'benign', 'adversarial'}, 'matched': bool, 'expected_match': bool},
     'detection_trial': {'cohort': {'malicious', 'benign', 'adversarial'}, 'matched': bool, 'expected_match': bool,
                         'rule_digest': 'digest', 'engine_digest': 'digest', 'fixture_digest': 'digest'},
+    'detection_spec': {'format': {'sigma', 'yara', 'kql', 'spl', 'eql', 'behavioral', 'correlation'},
+                       'rule_digest': 'digest', 'parent_digest': 'digest', 'technique_id': 'technique',
+                       'threshold': int, 'field_count': int, 'dependency_count': int, 'enabled': bool},
+    'detection_benchmark': {'rule_digest': 'digest', 'engine_digest': 'digest',
+                            'fixture_digest': 'digest', 'latency_ms': int, 'event_count': int},
+    'detection_source': {'format': {'sigma', 'yara', 'kql', 'spl', 'eql', 'behavioral', 'correlation'},
+                         'source': 'source', 'rule_digest': 'digest'},
+    'detection_event': {'event_type': {'authentication', 'process', 'network', 'file'},
+                        'outcome': {'success', 'failure', 'blocked', 'observed'}, 'count': int},
     'vulnerability_sla': VULNERABILITY_SLA_SCHEMA,
     'exposure': {'severity': SEVERITIES, 'reachable': YES_NO, 'mitigated': YES_NO},
     'identity': {'event': {'privilege_grant', 'session_revocation', 'mfa_disabled', 'login_failure', 'login_success'},
                  'authorized': YES_NO},
+    'identity_account': {'kind': {'human', 'service', 'workload'}, 'enabled': bool,
+                         'last_used': 'time', 'owner': {'active', 'inactive', 'unknown'},
+                         'mfa': {'enforced', 'bypassed', 'unenrolled', 'unknown'}, 'privileged': bool},
+    'identity_group_change': {'change': {'grant', 'revoke'}, 'approved': YES_NO,
+                              'privileged': bool, 'membership_state': {'present', 'absent', 'unknown'}},
+    'identity_location': {'latitude_millidegrees': int, 'longitude_millidegrees': int,
+                          'login': {'success', 'failure'}},
+    'directory_control': {'platform': {'active_directory', 'entra_id'},
+                          'control': {'ldap_signing','legacy_auth','privileged_review','password_protection',
+                                      'conditional_access','app_consent','mfa_registration'},
+                          'state': {'enforced','gap','unknown'}, 'baseline': {'current','stale','unknown'}},
+    'identity_workload': {'kind': {'service','workload'}, 'enabled': bool, 'owner': {'active','inactive','unknown'},
+                          'last_rotated': 'time', 'interactive_login': bool, 'workload_bound': bool},
+    'identity_policy': {'mode': {'enforced','report_only','disabled'}, 'scope': {'all','privileged','scoped','unknown'},
+                        'requires_mfa': YES_NO, 'requires_healthy_device': YES_NO, 'exception': YES_NO},
+    'identity_edge': {'target_id': 'uuid','grant': {'can_grant','can_assume','membership'},
+                      'privileged_target': bool,'active': bool},
+    'identity_permission': {'level': {'reader','writer','admin'}, 'needed': YES_NO, 'active': bool},
+    'identity_oauth': {'scope': {'read','write','manage'},'consent': YES_NO,'publisher_verified': YES_NO,
+                       'resource_scope': {'all','scoped','unknown'},'state': {'active','revoked'}},
+    'identity_token': {'token_id': 'uuid','state': {'active','revoked','unknown'},
+                       'audience': {'expected','unexpected','unknown'},'outcome': {'success','denied','unknown'}},
+    'identity_session': {'session_id': 'uuid','device': {'known','new','unknown'},
+                         'mfa': YES_NO,'outcome': {'success','denied'}},
+    'identity_lifecycle': {'event': {'join','move','leave','grant','revoke'},
+                           'approved': YES_NO,'state': {'active','inactive','unknown'}},
+    'identity_federation': {'mode': {'active','inactive'},'metadata_signed': YES_NO,
+                            'certificate': {'current','expired','unknown'},'endpoint_verified': YES_NO},
     'cloud_storage_access': CLOUD_STORAGE_ACCESS_SCHEMA,
+    'scope_link': SCOPE_LINK_SCHEMA,
     'cloud': {'finding': {'public_access', 'privileged_workload', 'unsigned_component', 'policy_drift'},
               'state': {'present', 'absent', 'unknown'}, 'authorized': YES_NO},
     'response_check': {'check': {'target_binding', 'dependencies', 'recovery'}, 'passed': YES_NO},
@@ -53,17 +98,24 @@ SCHEMAS = {
 ROLE_TYPES = {
     'telemetry_health': {'coverage', 'source_coverage'},
     'alert_triage': {'alert', 'activity'},
-    'incident_scoping': {'activity', 'alert', 'identity', 'cloud', 'timeline_event'},
+    'incident_scoping': {'activity', 'alert', 'identity', 'cloud', 'timeline_event', 'scope_link'},
     'threat_intelligence': {'intelligence', 'intel_lifecycle'},
     'threat_hunting': {'activity', 'identity', 'cloud', 'powershell_execution'},
     'dfir_evidence': {'artifact'},
-    'detection_engineering': {'detection', 'detection_trial'},
+    'detection_engineering': {'detection', 'detection_trial', 'detection_spec', 'detection_benchmark',
+                              'detection_source', 'detection_event'},
     'exposure_vulnerability': {'exposure', 'vulnerability_sla'},
-    'identity_access': {'identity', 'activity'},
+    'identity_access': {'identity', 'activity', 'identity_account', 'identity_group_change', 'identity_location',
+                        'directory_control','identity_workload','identity_policy','identity_edge','identity_permission',
+                        'identity_oauth','identity_token','identity_session','identity_lifecycle','identity_federation'},
     'cloud_supply_chain': {'cloud', 'cloud_storage_access'},
     'response_remediation': {'response_check'},
     'recovery_learning': {'recovery', 'recovery_point', 'recovery_time'},
 }
+for _role, _types in HARDENING_TYPES.items():
+    ROLE_TYPES[_role] |= _types
+for _role, _types in TELEMETRY_TRIAGE_TYPES.items():
+    ROLE_TYPES[_role] |= _types
 NEXT_STEPS = {
     'telemetry_health': ['review_source_visibility'],
     'alert_triage': ['review_alert_context', 'review_benign_administration'],
@@ -119,7 +171,13 @@ def at(value):
 
 def fact_data_for_model(fact):
     data = fact['data']
-    if fact['type'] == 'detection_trial':
+    if fact['type'] == 'identity_location':
+        return {'login': data['login'], 'location_supplied': True}
+    if fact['type'] in {'identity_edge','identity_token','identity_session'}:
+        return {key:value for key,value in data.items() if key not in {'target_id','token_id','session_id'}}
+    if fact['type'] in {'detection_trial', 'detection_spec', 'detection_benchmark', 'detection_source'}:
+        if fact['type'] != 'detection_trial':
+            return {'metadata_type': fact['type'], 'metadata_only': True}
         return {key: data[key] for key in ('cohort', 'matched', 'expected_match')}
     if fact['type'] == 'cloud_storage_access':
         return {key: value for key, value in data.items() if key not in {'path_id', 'policy_digest'}}
@@ -162,7 +220,11 @@ def validate_document(document, case_id):
             if allowed is bool:
                 require(type(item) is bool, 'invalid_specialist_fact_value')
             elif allowed is int:
-                require(type(item) is int and 1 <= item <= 1000000, 'invalid_specialist_fact_value')
+                if kind == 'identity_location':
+                    limit = 90000 if key == 'latitude_millidegrees' else 180000
+                    require(type(item) is int and -limit <= item <= limit, 'invalid_specialist_fact_value')
+                else:
+                    require(type(item) is int and 1 <= item <= 1000000, 'invalid_specialist_fact_value')
             elif allowed == 'time':
                 at(item)
             elif allowed == 'recovery_objective_seconds':
@@ -172,17 +234,39 @@ def validate_document(document, case_id):
                         'invalid_timeline_clock_bounds')
             elif allowed == 'uuid':
                 uid(item)
+            elif allowed == 'zero_to_million':
+                require(type(item) is int and 0 <= item <= 1000000, 'invalid_specialist_fact_value')
+            elif allowed == 'zero_to_billion':
+                require(type(item) is int and 0 <= item <= 1000000000, 'invalid_specialist_fact_value')
+            elif allowed == 'positive_week_seconds':
+                require(type(item) is int and 1 <= item <= 604800, 'invalid_specialist_fact_value')
             elif allowed == 'digest':
                 require(type(item) is str and re.fullmatch(r'[a-f0-9]{64}', item) is not None,
                         'invalid_specialist_fact_digest')
+            elif allowed == 'technique':
+                require(type(item) is str and re.fullmatch(r'T\d{4}(?:\.\d{3})?', item) is not None,
+                        'invalid_detection_technique_id')
+            elif allowed == 'source':
+                require(type(item) is str and 1 <= len(item.encode('utf-8')) <= 2048
+                        and all(c == '\n' or 32 <= ord(c) <= 126 for c in item),
+                        'invalid_detection_source')
             else:
                 require(type(item) is str and item in allowed, 'invalid_specialist_fact_value')
+        if kind == 'detection_source':
+            require(sha256(data['source'].encode('utf-8')).hexdigest() == data['rule_digest'],
+                    'detection_source_digest_mismatch')
+        if kind == 'scope_link':
+            require(fact['entity_id'] is not None, 'scope_link_source_required')
         if kind == 'cloud_storage_access':
             validate_cloud_storage_access(fact)
         if kind == 'intel_lifecycle':
             validate_intel_lifecycle(fact, as_of)
         if kind == 'vulnerability_sla':
             validate_vulnerability_sla(fact)
+        if kind in HARDENING_SCHEMAS:
+            validate_hardening_fact(fact)
+        if kind in TELEMETRY_TRIAGE_SCHEMAS:
+            validate_telemetry_triage_fact(fact)
         if kind == 'powershell_execution':
             require(fact['entity_id'] is not None, 'powershell_host_alias_required')
         if kind == 'timeline_event':
@@ -193,6 +277,14 @@ def validate_document(document, case_id):
             validate_recovery_time(fact)
         if kind == 'source_coverage':
             validate_source_coverage(fact)
+        if kind == 'identity_account':
+            require(at(data['last_used']) <= as_of, 'specialist_fact_after_snapshot')
+        if kind == 'identity_workload':
+            require(at(data['last_rotated']) <= as_of, 'specialist_fact_after_snapshot')
+        if kind == 'directory_control':
+            allowed={'active_directory': {'ldap_signing','legacy_auth','privileged_review','password_protection'},
+                     'entra_id': {'legacy_auth','conditional_access','app_consent','mfa_registration'}}
+            require(data['control'] in allowed[data['platform']], 'invalid_directory_control')
     require(len({fact['evidence_id'] for fact in facts}) <= 32, 'specialist_fact_source_limit')
     return document
 
