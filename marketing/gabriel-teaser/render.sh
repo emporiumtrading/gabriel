@@ -66,7 +66,7 @@ ffmpeg -hide_banner -loglevel error -y \
   -f lavfi -i "sine=frequency=55:sample_rate=48000:duration=40" \
   -f lavfi -i "sine=frequency=110:sample_rate=48000:duration=40" \
   -f lavfi -i "anoisesrc=color=pink:sample_rate=48000:duration=40" \
-  -filter_complex "[0:a]volume=0.055,lowpass=f=180[a0];[1:a]volume='0.018+0.010*sin(2*PI*t/5)',lowpass=f=600[a1];[2:a]volume=0.008,lowpass=f=1200[a2];[a0][a1][a2]amix=inputs=3:duration=longest,afade=t=in:st=0:d=1.5,afade=t=out:st=37:d=3,loudnorm=I=-24:TP=-2:LRA=7[a]" \
+  -filter_complex "[0:a]volume=0.055,lowpass=f=180[a0];[1:a]volume=0.024,lowpass=f=600[a1];[2:a]volume=0.008,lowpass=f=1200[a2];[a0][a1][a2]amix=inputs=3:duration=longest,afade=t=in:st=0:d=1.5,afade=t=out:st=37:d=3,loudnorm=I=-24:TP=-2:LRA=7[a]" \
   -map "[a]" -c:a aac -b:a 192k build/score.m4a
 
 ffmpeg -hide_banner -loglevel error -y -i build/video_silent.mp4 -i build/score.m4a \
