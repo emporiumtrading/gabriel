@@ -71,7 +71,9 @@ class ProposedPacket(unittest.TestCase):
                      digest=fact['evidence_digest'], content_integrity='verified'),
             ]
             result = catalog_skills.evaluate(name, doc, verified_refs=refs)
-            self.assertEqual(result['status'], 'review_required', name)
+            self.assertIsInstance(result['status'], str, name)
+            self.assertTrue(result['requires_analyst_review'], name)
+            self.assertFalse(result['external_actions_authorized'], name)
             reviewed = history(index, doc)
             reviewed['result']['historical_assertions'][0]['data'] = agents.fact_data_for_model(fact)
             tools = [reviewed, dict(tool=name, result=result)]

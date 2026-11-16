@@ -8,8 +8,13 @@ import math
 from pathlib import Path
 
 from gabriel.identity.evidence_store import canonical
+from gabriel.identity.catalog_dfir_artifacts import SKILLS as DFIR_ARTIFACT_SKILLS
+from gabriel.identity.catalog_exposure_cloud_extended import SKILLS as EXPOSURE_CLOUD_SKILLS
 from gabriel.identity.catalog_hardening import SKILLS as HARDENING_SKILLS
 from gabriel.identity.catalog_identity import SKILLS as IDENTITY_SKILLS
+from gabriel.identity.catalog_intel_hunt import SKILLS as INTEL_HUNT_SKILLS
+from gabriel.identity.catalog_response_recovery import SKILLS as RESPONSE_RECOVERY_SKILLS
+from gabriel.identity.catalog_scope_extended import SKILLS as SCOPE_EXTENDED_SKILLS
 from gabriel.identity.catalog_skills import SKILLS as CATALOG_SKILLS
 from gabriel.identity.catalog_telemetry_triage import SKILLS as TELEMETRY_TRIAGE_SKILLS
 from gabriel.identity.grounded_skills import SKILL_NAMES as GROUNDED_SKILLS, evaluate as grounded_evaluate
@@ -19,7 +24,7 @@ from gabriel.identity.specialist_analysis import ROLE_TYPES,analyze
 from gabriel.identity.specialist_analysis_runs import verified_input
 from gabriel.identity.specialist_contracts import ROLES,role_name
 
-VERSION='gabriel-investigation-toolkit-v2'
+VERSION='gabriel-investigation-toolkit-v3'
 SKILLS=Path(__file__).with_name('investigation_skills')
 REMOTE={'scan_artifacts','inspect_packets','inspect_logs'}
 CATALOG_RUNTIME_GUIDANCE=('Catalog tools review only supplied case-bound typed facts. Verify sources, clocks, entity binding, baselines and authorization. Treat source authenticity and current posture as unverified. Never perform external actions; every result requires analyst review.')
@@ -27,17 +32,17 @@ EXTRA={
     'telemetry_health':('correlate_events','inspect_logs','assess_visibility_gaps','map_source_coverage')+tuple(name for name,role in TELEMETRY_TRIAGE_SKILLS.items() if role=='telemetry_health'),
     'alert_triage':('inspect_logs','correlate_events','scan_artifacts','find_duplicate_facts','prioritize_escalation_queue')+tuple(name for name,role in TELEMETRY_TRIAGE_SKILLS.items() if role=='alert_triage'),
     'incident_scoping':('correlate_events','inspect_logs','inspect_packets','find_duplicate_facts','cross_check_timeline','review_incident_evidence_gaps','normalize_incident_timeline',
-        'correlate_system_events','map_asset_relationships','review_process_parentage','reconstruct_reported_remote_paths'),
-    'threat_intelligence':('scan_artifacts','inspect_packets','review_indicator_freshness','review_intelligence_lifecycle'),
-    'threat_hunting':('inspect_logs','scan_artifacts','inspect_packets','summarize_hunt_hypotheses','review_powershell_activity'),
-    'dfir_evidence':('scan_artifacts','inspect_packets','audit_provenance','cross_check_timeline','validate_evidence_provenance'),
+        'correlate_system_events','map_asset_relationships','review_process_parentage','reconstruct_reported_remote_paths')+tuple(SCOPE_EXTENDED_SKILLS),
+    'threat_intelligence':('scan_artifacts','inspect_packets','review_indicator_freshness','review_intelligence_lifecycle')+tuple(name for name,role in INTEL_HUNT_SKILLS.items() if role=='threat_intelligence'),
+    'threat_hunting':('inspect_logs','scan_artifacts','inspect_packets','summarize_hunt_hypotheses','review_powershell_activity')+tuple(name for name,role in INTEL_HUNT_SKILLS.items() if role=='threat_hunting'),
+    'dfir_evidence':('scan_artifacts','inspect_packets','audit_provenance','cross_check_timeline','validate_evidence_provenance')+tuple(DFIR_ARTIFACT_SKILLS),
     'detection_engineering':('scan_artifacts','inspect_logs','review_detection_regression','analyze_false_negatives',
         'map_attack_coverage','validate_sigma_subset','compile_yara_rule','validate_kql_subset','validate_spl_subset','validate_eql_subset','evaluate_behavioral_rule','evaluate_correlation_rule','review_detection_as_code','review_detection_fixture_divergence','review_detection_optimization','review_false_positive_fixtures','review_detection_thresholds','map_detection_dependencies','map_adversary_emulation','review_detection_engine_drift','audit_detection_versions','benchmark_detection_performance','prioritize_detection_gaps'),
-    'exposure_vulnerability':('assess_exposure','review_exposure_context','review_vulnerability_sla')+tuple(name for name,role in HARDENING_SKILLS.items() if role=='exposure_vulnerability'),
+    'exposure_vulnerability':('assess_exposure','review_exposure_context','review_vulnerability_sla')+tuple(name for name,role in HARDENING_SKILLS.items() if role=='exposure_vulnerability')+tuple(name for name,role in EXPOSURE_CLOUD_SKILLS.items() if role=='exposure_vulnerability'),
     'identity_access':('inspect_logs','correlate_events','find_duplicate_facts','review_privileged_access_changes')+tuple(IDENTITY_SKILLS),
-    'cloud_supply_chain':('scan_artifacts','correlate_events','review_cloud_change_assertions','assess_cloud_storage_exposure')+tuple(name for name,role in HARDENING_SKILLS.items() if role=='cloud_supply_chain'),
-    'response_remediation':('assess_exposure','correlate_events','review_response_dependencies','analyze_response_dependencies')+tuple(name for name,role in HARDENING_SKILLS.items() if role=='response_remediation'),
-    'recovery_learning':('correlate_events','review_recovery_baselines','review_incident_closure_evidence','review_recovery_point','review_recovery_time'),
+    'cloud_supply_chain':('scan_artifacts','correlate_events','review_cloud_change_assertions','assess_cloud_storage_exposure')+tuple(name for name,role in HARDENING_SKILLS.items() if role=='cloud_supply_chain')+tuple(name for name,role in EXPOSURE_CLOUD_SKILLS.items() if role=='cloud_supply_chain'),
+    'response_remediation':('assess_exposure','correlate_events','review_response_dependencies','analyze_response_dependencies')+tuple(name for name,role in HARDENING_SKILLS.items() if role=='response_remediation')+tuple(name for name,role in RESPONSE_RECOVERY_SKILLS.items() if role=='response_remediation'),
+    'recovery_learning':('correlate_events','review_recovery_baselines','review_incident_closure_evidence','review_recovery_point','review_recovery_time')+tuple(name for name,role in RESPONSE_RECOVERY_SKILLS.items() if role=='recovery_learning'),
 }
 TOOLS={r:('verify_sources','review_rules','review_memory')+(() if r=='recovery_learning' else ('inspect_timeline',))+('inspect_toolkit',)+EXTRA[r] for r in ROLES}
 CATALOG={
@@ -106,6 +111,11 @@ CATALOG={
 CATALOG.update({name:('Gabriel','MIT','Review supplied identity evidence for '+name.replace('_',' ')+'; no access changes.') for name in IDENTITY_SKILLS})
 CATALOG.update({name:('Gabriel','MIT','Review supplied case-bound evidence for '+name.replace('_',' ')+'; no external action is authorized.') for name in HARDENING_SKILLS})
 CATALOG.update({name:('Gabriel','MIT','Review supplied case-bound evidence for '+name.replace('_',' ')+'; no external action is authorized.') for name in TELEMETRY_TRIAGE_SKILLS})
+CATALOG.update({name:('Gabriel','MIT','Review supplied case-bound evidence for '+name.replace('_',' ')+'; no external action is authorized.') for name in INTEL_HUNT_SKILLS})
+CATALOG.update({name:('Gabriel','MIT','Review supplied case-bound evidence for '+name.replace('_',' ')+'; no external action is authorized.') for name in EXPOSURE_CLOUD_SKILLS})
+CATALOG.update({name:('Gabriel','MIT','Review supplied case-bound evidence for '+name.replace('_',' ')+'; no external action is authorized.') for name in RESPONSE_RECOVERY_SKILLS})
+CATALOG.update({name:('Gabriel','MIT','Review supplied case-bound evidence for '+name.replace('_',' ')+'; no external action is authorized.') for name in DFIR_ARTIFACT_SKILLS})
+CATALOG.update({name:('Gabriel','MIT','Review supplied case-bound evidence for '+name.replace('_',' ')+'; no external action is authorized.') for name in SCOPE_EXTENDED_SKILLS})
 
 def manifest(role):
     role_name(role)
@@ -119,13 +129,17 @@ def manifest(role):
             Path(__file__).with_name('catalog_detection_sources.py'),Path(__file__).with_name('catalog_scope.py'),Path(__file__).with_name('catalog_hardening.py'),Path(__file__).with_name('catalog_telemetry_triage.py'),
             Path(__file__).with_name('catalog_telemetry.py'),Path(__file__).with_name('catalog_intelligence.py'),
             Path(__file__).with_name('catalog_exposure.py'),Path(__file__).with_name('catalog_cloud.py'),
-            Path(__file__).with_name('catalog_timeline.py'),Path(__file__).with_name('catalog_hunting.py'),Path(__file__).with_name('catalog_recovery.py'),Path(__file__).with_name('specialist_analysis.py'))])) for n in TOOLS[role]]
+            Path(__file__).with_name('catalog_timeline.py'),Path(__file__).with_name('catalog_hunting.py'),Path(__file__).with_name('catalog_recovery.py'),
+            Path(__file__).with_name('catalog_intel_hunt.py'),Path(__file__).with_name('catalog_exposure_cloud_extended.py'),
+            Path(__file__).with_name('catalog_response_recovery.py'),Path(__file__).with_name('catalog_dfir_artifacts.py'),
+            Path(__file__).with_name('catalog_scope_extended.py'),Path(__file__).with_name('dfir_bounded_parsers.py'),
+            Path(__file__).with_name('specialist_analysis.py'))])) for n in TOOLS[role]]
 
 
 def instructions(role):
-    # The actual packaged skill is model context, not a decorative documentation link.
+    # Compact purpose lines preserve the admitted contract without exceeding the fixed model-request ceiling.
     names=tuple(n for n in TOOLS[role] if n not in CATALOG_SKILLS)
-    value='\n'.join((SKILLS/n/'SKILL.md').read_text().split('---',2)[-1].strip() for n in names)
+    value='\n'.join(n+': '+CATALOG[n][2] for n in names)
     return value+('\n'+CATALOG_RUNTIME_GUIDANCE if any(n in CATALOG_SKILLS for n in TOOLS[role]) else '')
 
 

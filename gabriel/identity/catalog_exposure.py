@@ -66,13 +66,14 @@ def review_vulnerability_sla(document):
     case_id = document.get('case_id') if type(document) is dict else None
     validate_document(document, case_id)
     scope = ROLE_TYPES['exposure_vulnerability'] | {'coverage'}
-    observations = [fact for fact in document['facts'] if fact['type'] in scope]
+    observations = [(index, fact) for index, fact in enumerate(document['facts'], 1)
+                    if fact['type'] in scope]
     aliases = {
         value: f'e{index}'
-        for index, value in enumerate(sorted({fact['entity_id'] for fact in observations if fact['entity_id']}), 1)
+        for index, value in enumerate(sorted({fact['entity_id'] for _, fact in observations if fact['entity_id']}), 1)
     }
     grouped = defaultdict(list)
-    for index, fact in enumerate(observations, 1):
+    for index, fact in observations:
         if fact['type'] == 'vulnerability_sla':
             data = fact['data']
             grouped[fact['entity_id']].append({

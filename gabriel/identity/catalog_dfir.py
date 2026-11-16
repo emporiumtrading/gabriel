@@ -23,10 +23,9 @@ def evaluate(name, document, *, verified_refs=None):
 
     role = SKILLS[name]
     visible_types = ROLE_TYPES[role] | {'coverage'}
-    visible_facts = (fact for fact in document['facts'] if fact['type'] in visible_types)
     artifacts = defaultdict(list)
-    for index, fact in enumerate(visible_facts, 1):
-        if fact['type'] == 'artifact':
+    for index, fact in enumerate(document['facts'], 1):
+        if fact['type'] in visible_types and fact['type'] == 'artifact':
             artifacts[fact['evidence_id']].append((f'o{index}', fact))
 
     result = dict(

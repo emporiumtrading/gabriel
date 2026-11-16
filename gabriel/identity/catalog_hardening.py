@@ -151,12 +151,12 @@ def _audit(rows,now):
     return out
 
 
-def _checklist(rows,kind,key,required,*,baseline=False,expiry=False):
+def _checklist(rows,kind,key,required,*,baseline=False,expiry=False,check_field='check'):
     out=[]
     for reports in _group(rows,kind,key):
         checks=defaultdict(set)
         for f,_ in reports:
-            d=f['data'];checks[d['check']].add((d['result'],d.get('baseline')))
+            d=f['data'];checks[d[check_field]].add((d['result'],d.get('baseline')))
         missing=sorted(set(required)-checks.keys())
         if any(len(v)>1 for v in checks.values()): status='conflicting_assertions'
         elif any(f['data']['result']=='fail' for f,_ in reports): status='reported_failed_check'
@@ -176,7 +176,8 @@ def _rollback(rows,now):
 
 
 def _control(rows,now):
-    return _checklist(rows,'control_trial','control_digest',('blocked_path','monitoring','recovery'),baseline=True,expiry=now)
+    return _checklist(rows,'control_trial','control_digest',('blocked_path','monitoring','recovery'),
+                      baseline=True,expiry=now,check_field='test')
 
 
 def _post(rows,now):

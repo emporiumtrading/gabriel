@@ -12,11 +12,21 @@ from uuid import UUID
 from gabriel.identity.catalog_scope import SCOPE_LINK_SCHEMA
 from gabriel.identity.catalog_cloud import CLOUD_STORAGE_ACCESS_SCHEMA, validate_cloud_storage_access
 from gabriel.identity.catalog_exposure import VULNERABILITY_SLA_SCHEMA, validate_vulnerability_sla
+from gabriel.identity.catalog_dfir_artifacts import (SCHEMAS as DFIR_ARTIFACT_SCHEMAS,
+    ROLE_TYPES as DFIR_ARTIFACT_TYPES, validate_fact as validate_dfir_artifact_fact)
+from gabriel.identity.catalog_exposure_cloud_extended import (SCHEMAS as EXPOSURE_CLOUD_SCHEMAS,
+    ROLE_TYPES as EXPOSURE_CLOUD_TYPES, validate_fact as validate_exposure_cloud_fact)
 from gabriel.identity.catalog_hardening import SCHEMAS as HARDENING_SCHEMAS, ROLE_TYPES as HARDENING_TYPES, validate_fact as validate_hardening_fact
 from gabriel.identity.catalog_hunting import POWERSHELL_EXECUTION_SCHEMA
+from gabriel.identity.catalog_intel_hunt import (SCHEMAS as INTEL_HUNT_SCHEMAS,
+    ROLE_TYPES as INTEL_HUNT_TYPES, validate_fact as validate_intel_hunt_fact)
 from gabriel.identity.catalog_intelligence import INTEL_LIFECYCLE_SCHEMA, validate_intel_lifecycle
 from gabriel.identity.catalog_recovery import (RECOVERY_POINT_SCHEMA, RECOVERY_TIME_SCHEMA,
                                                validate_recovery_point, validate_recovery_time)
+from gabriel.identity.catalog_response_recovery import (SCHEMAS as RESPONSE_RECOVERY_SCHEMAS,
+    ROLE_TYPES as RESPONSE_RECOVERY_TYPES, validate_fact as validate_response_recovery_fact)
+from gabriel.identity.catalog_scope_extended import (SCHEMAS as SCOPE_EXTENDED_SCHEMAS,
+    ROLE_TYPES as SCOPE_EXTENDED_TYPES, validate_fact as validate_scope_extended_fact)
 from gabriel.identity.catalog_telemetry import SOURCE_COVERAGE_SCHEMA, validate_source_coverage
 from gabriel.identity.catalog_telemetry_triage import (SCHEMAS as TELEMETRY_TRIAGE_SCHEMAS,
     ROLE_TYPES as TELEMETRY_TRIAGE_TYPES, validate_fact as validate_telemetry_triage_fact)
@@ -31,6 +41,11 @@ YES_NO = {'yes', 'no', 'unknown'}
 SCHEMAS = {
     **HARDENING_SCHEMAS,
     **TELEMETRY_TRIAGE_SCHEMAS,
+    **INTEL_HUNT_SCHEMAS,
+    **EXPOSURE_CLOUD_SCHEMAS,
+    **RESPONSE_RECOVERY_SCHEMAS,
+    **DFIR_ARTIFACT_SCHEMAS,
+    **SCOPE_EXTENDED_SCHEMAS,
     'coverage': {'state': {'available', 'stale', 'missing'}},
     'source_coverage': SOURCE_COVERAGE_SCHEMA,
     'alert': {'severity': SEVERITIES, 'state': {'open', 'resolved', 'unknown'}},
@@ -116,6 +131,10 @@ for _role, _types in HARDENING_TYPES.items():
     ROLE_TYPES[_role] |= _types
 for _role, _types in TELEMETRY_TRIAGE_TYPES.items():
     ROLE_TYPES[_role] |= _types
+for _catalog_types in (INTEL_HUNT_TYPES, EXPOSURE_CLOUD_TYPES, RESPONSE_RECOVERY_TYPES,
+                       DFIR_ARTIFACT_TYPES, SCOPE_EXTENDED_TYPES):
+    for _role, _types in _catalog_types.items():
+        ROLE_TYPES[_role] |= _types
 NEXT_STEPS = {
     'telemetry_health': ['review_source_visibility'],
     'alert_triage': ['review_alert_context', 'review_benign_administration'],
@@ -169,23 +188,63 @@ def at(value):
         raise InvalidIdentityInput('invalid_specialist_fact_time') from None
 
 
+OPAQUE_FACT_FIELDS = {
+    'identity_edge': {'target_id'},
+    'identity_token': {'token_id'},
+    'identity_session': {'session_id'},
+    'cloud_storage_access': {'path_id', 'policy_digest'},
+    'powershell_execution': {'process_instance_id'},
+    'intel_lifecycle': {'feed_id'},
+    'scope_link': {'target_entity'},
+    'forensic_artifact': {'artifact_digest'},
+    'scope_relation_v2': {'target_entity'},
+    'intelligence_assertion': {'assessment_id'},
+    'hunt_observation': {'observation_id', 'correlation_id'},
+    'vulnerability_risk': {'finding_id'},
+    'asset_exposure': {'asset_id'},
+    'service_binding': {'vulnerability_id', 'service_id'},
+    'attack_path': {'path_id'},
+    'response_plan': {'plan_id'},
+    'change_impact': {'change_id'},
+    'service_continuity': {'service_id'},
+    'response_authorization': {'action_id', 'scope_digest'},
+    'response_escalation': {'escalation_id'},
+    'recovery_readiness': {'plan_digest'},
+    'backup_assurance': {'backup_id'},
+    'recovery_validation': {'recovery_id'},
+    'learning_finding': {'finding_id'},
+    'recovery_dependency': {'dependency_id'},
+    'residual_risk': {'risk_id'},
+    'response_milestone': {'milestone_id'},
+    'cloud_audit_window': {'stream_id'},
+    'remediation_validation': {'remediation_digest'},
+    'response_rollback': {'action_id', 'plan_digest'},
+    'vulnerability_exception': {'exception_id', 'policy_digest'},
+    'control_trial': {'control_digest'},
+    'software_lifecycle': {'component_digest'},
+    'cloud_rbac_grant': {'grant_id'},
+    'cloud_network_rule': {'rule_id'},
+    'containment_effectiveness': {'action_id'},
+    'post_remediation': {'action_id', 'action_digest'},
+    'patch_state': {'patch_digest'},
+}
+
+
 def fact_data_for_model(fact):
     data = fact['data']
-    if fact['type'] == 'identity_location':
+    kind = fact['type']
+    if kind == 'identity_location':
         return {'login': data['login'], 'location_supplied': True}
-    if fact['type'] in {'identity_edge','identity_token','identity_session'}:
-        return {key:value for key,value in data.items() if key not in {'target_id','token_id','session_id'}}
-    if fact['type'] in {'detection_trial', 'detection_spec', 'detection_benchmark', 'detection_source'}:
-        if fact['type'] != 'detection_trial':
-            return {'metadata_type': fact['type'], 'metadata_only': True}
+    if kind in {'detection_trial', 'detection_spec', 'detection_benchmark', 'detection_source'}:
+        if kind != 'detection_trial':
+            return {'metadata_type': kind, 'metadata_only': True}
         return {key: data[key] for key in ('cohort', 'matched', 'expected_match')}
-    if fact['type'] == 'cloud_storage_access':
-        return {key: value for key, value in data.items() if key not in {'path_id', 'policy_digest'}}
-    if fact['type'] == 'powershell_execution':
-        return {key: value for key, value in data.items() if key != 'process_instance_id'}
-    if fact['type'] == 'intel_lifecycle':
-        return {key: value for key, value in data.items() if key != 'feed_id'}
-    return data
+    hidden = OPAQUE_FACT_FIELDS.get(kind, set())
+    if not hidden:
+        return data
+    public = {key: value for key, value in data.items() if key not in hidden}
+    public['opaque_identifiers_supplied'] = sum(key in data for key in hidden)
+    return public
 
 
 def validate_document(document, case_id):
@@ -223,6 +282,8 @@ def validate_document(document, case_id):
                 if kind == 'identity_location':
                     limit = 90000 if key == 'latitude_millidegrees' else 180000
                     require(type(item) is int and -limit <= item <= limit, 'invalid_specialist_fact_value')
+                elif kind == 'detection_spec' and key in {'field_count', 'dependency_count'}:
+                    require(type(item) is int and 0 <= item <= 1000000, 'invalid_specialist_fact_value')
                 else:
                     require(type(item) is int and 1 <= item <= 1000000, 'invalid_specialist_fact_value')
             elif allowed == 'time':
@@ -267,6 +328,16 @@ def validate_document(document, case_id):
             validate_hardening_fact(fact)
         if kind in TELEMETRY_TRIAGE_SCHEMAS:
             validate_telemetry_triage_fact(fact)
+        if kind in INTEL_HUNT_SCHEMAS:
+            validate_intel_hunt_fact(fact)
+        if kind in EXPOSURE_CLOUD_SCHEMAS:
+            validate_exposure_cloud_fact(fact)
+        if kind in RESPONSE_RECOVERY_SCHEMAS:
+            validate_response_recovery_fact(fact)
+        if kind in DFIR_ARTIFACT_SCHEMAS:
+            validate_dfir_artifact_fact(fact)
+        if kind in SCOPE_EXTENDED_SCHEMAS:
+            validate_scope_extended_fact(fact)
         if kind == 'powershell_execution':
             require(fact['entity_id'] is not None, 'powershell_host_alias_required')
         if kind == 'timeline_event':

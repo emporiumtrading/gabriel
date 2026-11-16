@@ -95,11 +95,9 @@ def evaluate(name, document, *, verified_refs=None):
     as_of = at(document['as_of'])
     verified_digests = _verified_digests(case_id, verified_refs)
     visible_types = ROLE_TYPES[SKILLS[name]] | {'coverage'}
-    visible_facts = (fact for fact in document['facts'] if fact['type'] in visible_types)
-
     tracks = defaultdict(list)
-    for index, fact in enumerate(visible_facts, 1):
-        if fact['type'] != 'intel_lifecycle':
+    for index, fact in enumerate(document['facts'], 1):
+        if fact['type'] not in visible_types or fact['type'] != 'intel_lifecycle':
             continue
         data = fact['data']
         assertion = (data['state'], at(fact['event_time']), at(data['valid_until']))

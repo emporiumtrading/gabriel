@@ -6,8 +6,10 @@ These kernels do not receive credentials, access live systems or authorize actio
 from collections import Counter
 from datetime import datetime
 
-from gabriel.identity import (catalog_cloud, catalog_dfir, catalog_hardening,
-    catalog_identity, catalog_intelligence, catalog_scope, catalog_telemetry_triage)
+from gabriel.identity import (catalog_cloud, catalog_dfir, catalog_dfir_artifacts,
+    catalog_exposure_cloud_extended, catalog_hardening, catalog_identity, catalog_intel_hunt,
+    catalog_intelligence, catalog_response_recovery, catalog_scope, catalog_scope_extended,
+    catalog_telemetry_triage)
 from gabriel.identity.catalog_detection import (METADATA_SKILLS, analyze_false_negatives,
     review_detection_metadata, review_false_positive_fixtures,
     review_detection_fixture_divergence, review_detection_engine_drift)
@@ -19,7 +21,7 @@ from gabriel.identity.catalog_telemetry import map_source_coverage
 from gabriel.identity.catalog_timeline import normalize_incident_timeline
 from gabriel.identity.specialist_analysis import validate_document
 
-VERSION='gabriel-catalog-tranche-1-v1'
+VERSION='gabriel-catalog-240-v1'
 SKILLS={
     **catalog_cloud.SKILLS,
     **catalog_dfir.SKILLS,
@@ -28,6 +30,11 @@ SKILLS={
     **catalog_intelligence.SKILLS,
     **catalog_hardening.SKILLS,
     **catalog_telemetry_triage.SKILLS,
+    **catalog_intel_hunt.SKILLS,
+    **catalog_exposure_cloud_extended.SKILLS,
+    **catalog_response_recovery.SKILLS,
+    **catalog_dfir_artifacts.SKILLS,
+    **catalog_scope_extended.SKILLS,
     'review_vulnerability_sla': 'exposure_vulnerability',
     'normalize_incident_timeline': 'incident_scoping',
     'review_powershell_activity': 'threat_hunting',
@@ -67,7 +74,19 @@ def evaluate(name, document, *, verified_refs=None):
     if name in catalog_hardening.SKILLS:
         return catalog_hardening.evaluate(name, document, verified_refs=verified_refs)
     if name in catalog_telemetry_triage.SKILLS:
-        return catalog_telemetry_triage.evaluate(name, document, verified_refs=verified_refs)
+        refs = None if verified_refs is None else tuple(
+            ref.get('ref') if type(ref) is dict else ref for ref in verified_refs)
+        return catalog_telemetry_triage.evaluate(name, document, verified_refs=refs)
+    if name in catalog_intel_hunt.SKILLS:
+        return catalog_intel_hunt.evaluate(name, document, verified_refs=verified_refs)
+    if name in catalog_exposure_cloud_extended.SKILLS:
+        return catalog_exposure_cloud_extended.evaluate(name, document, verified_refs=verified_refs)
+    if name in catalog_response_recovery.SKILLS:
+        return catalog_response_recovery.evaluate(name, document, verified_refs=verified_refs)
+    if name in catalog_dfir_artifacts.SKILLS:
+        return catalog_dfir_artifacts.evaluate(name, document, verified_refs=verified_refs)
+    if name in catalog_scope_extended.SKILLS:
+        return catalog_scope_extended.evaluate(name, document, verified_refs=verified_refs)
     if name == 'review_vulnerability_sla':
         return review_vulnerability_sla(document)
     if name == 'normalize_incident_timeline':

@@ -45,14 +45,13 @@ def normalize_incident_timeline(document):
     case_id = document.get('case_id') if type(document) is dict else None
     validate_document(document, case_id)
     as_of = at(document['as_of'])
-    observations = (fact for fact in document['facts']
-                    if fact['type'] in ROLE_TYPES['incident_scoping'] | {'coverage'})
+    visible_types = ROLE_TYPES['incident_scoping'] | {'coverage'}
     intervals = []
     unresolved = []
     reports = defaultdict(dict)
     duplicate_count = 0
-    for index, fact in enumerate(observations, 1):
-        if fact['type'] != 'timeline_event':
+    for index, fact in enumerate(document['facts'], 1):
+        if fact['type'] not in visible_types or fact['type'] != 'timeline_event':
             continue
         data = fact['data']
         reported = at(fact['event_time'])
