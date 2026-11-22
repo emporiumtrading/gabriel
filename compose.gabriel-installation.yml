@@ -180,10 +180,10 @@ secrets:
   tls_ca:
     file: ${GABRIEL_INSTALL_ROOT}/tls/ca.pem
   toolbus_ca:
-    file: ${GABRIEL_INSTALL_ROOT}/toolbus/ca.pem
+    file: ${GABRIEL_TOOLBUS_TLS_DIR:?Tool-bus TLS directory required}/ca.pem
   toolbus_certificate:
-    file: ${GABRIEL_INSTALL_ROOT}/toolbus/server.pem
+    file: ${GABRIEL_TOOLBUS_TLS_DIR}/server.pem
   toolbus_key:
-    file: ${GABRIEL_INSTALL_ROOT}/toolbus/server.key
+    file: ${GABRIEL_TOOLBUS_TLS_DIR}/server.key
   toolbus_token:
-    file: ${GABRIEL_INSTALL_ROOT}/toolbus/token
+    file: ${GABRIEL_TOOLBUS_TLS_DIR}/token

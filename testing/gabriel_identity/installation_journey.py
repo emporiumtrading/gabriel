@@ -162,6 +162,11 @@ print(json.dumps({'case':str(case),'evidence':str(row['id'])}))
         original_ca=Path(app.env['GABRIEL_DB_TLS_DIR'])/'ca.pem'
         browser_ca=(root/'tls'/'ca.pem').read_bytes()
         assert app.renew_database_tls()['requires_fresh_login']
+        before=app.env['GABRIEL_TOOLBUS_TLS_DIR']
+        renewed=app.renew_toolbus_tls()
+        assert renewed=={'toolbus_tls_renewed':True,'services_stopped':True,'requires_fresh_login':True}
+        assert app.env['GABRIEL_TOOLBUS_TLS_DIR']!=before
+        assert not app.compose('ps','--status','running','--quiet','hermes','investigation-tools','workbench','local-entry').strip()
         app=Installation(root);apps[0]=app
         assert (Path(app.env['GABRIEL_DB_TLS_DIR'])/'ca.pem').read_bytes()!=original_ca.read_bytes()
         assert (root/'tls'/'ca.pem').read_bytes()==browser_ca

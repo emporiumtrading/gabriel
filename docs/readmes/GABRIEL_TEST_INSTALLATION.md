@@ -38,6 +38,8 @@ The application and database stay on an internal Docker network with no admitted
 
 PostgreSQL requires TLS 1.2 or newer and SCRAM authentication on TCP. The operator and workbench verify the `identity-db` hostname against a separate installation database CA. Its 90-day certificate can be rotated with `python3 tooling/scripts/gabriel_install.py renew-database-tls "$HOME/gabriel-private-test"`. Rotation stops the workbench and database. Run `open` to reconnect and create a fresh login. The browser continues to use its existing trust anchor. For an installation created before database TLS support, use `rebuild` with a fresh backup destination to install the database certificate and retain the database, evidence, and provider keyring.
 
+Hermes and the investigation-tool service require certificate-verified TLS plus an installation-scoped bearer token. Their 30-day certificate and token can be rotated together with `python3 tooling/scripts/gabriel_install.py renew-toolbus-tls "$HOME/gabriel-private-test"`. Rotation publishes a new immutable generation, stops the affected services, and requires a fresh `open` command and login. Previous generations remain available for operator inspection until the bounded history limit requires review.
+
 ```bash
 python3 tooling/scripts/gabriel_install.py status "$HOME/gabriel-private-test"
 python3 tooling/scripts/gabriel_install.py stop "$HOME/gabriel-private-test"
