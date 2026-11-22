@@ -3,6 +3,8 @@ import base64
 import http.client
 import json
 import os
+from pathlib import Path
+import ssl
 from uuid import uuid4
 
 import pytest
@@ -68,8 +70,11 @@ def test_unowned_case_and_disallowed_role_tools_do_not_contact_worker(tenant,cas
 
 
 def test_worker_refuses_unknown_commands_and_never_returns_source_text():
-    client=http.client.HTTPConnection('investigation-tools',8450,timeout=8)
-    client.request('POST','/analyze',body=json.dumps(dict(tool='shell',data=base64.b64encode(b'private generated source').decode())),headers={'Content-Type':'application/json'})
+    context=ssl.create_default_context(cafile=os.environ['GABRIEL_TOOLBUS_CA_FILE'])
+    token=Path(os.environ['GABRIEL_TOOLBUS_TOKEN_FILE']).read_text().strip()
+    client=http.client.HTTPSConnection('investigation-tools',8450,context=context,timeout=8)
+    client.request('POST','/analyze',body=json.dumps(dict(tool='shell',data=base64.b64encode(b'private generated source').decode())),
+        headers={'Content-Type':'application/json','Authorization':'Bearer '+token})
     response=client.getresponse();body=response.read();client.close()
     assert response.status==422 and b'private generated source' not in body
 
