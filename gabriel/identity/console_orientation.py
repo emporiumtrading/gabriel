@@ -7,12 +7,12 @@ grant browser permissions, authenticate the source, or qualify any AI model.
 from hashlib import sha256
 import re
 from urllib.parse import urlsplit
-from uuid import UUID
+from uuid import UUID,uuid5
 
 from gabriel.identity.evidence_store import canonical
 from gabriel.identity.browser_navigation import readonly_page
 from gabriel.identity.browser_sessions import VERSION as BROWSER_VERSION, checked_page_url
-from gabriel.identity.service import AccessDenied
+from gabriel.identity.service import AccessDenied,_audit,connection,identifier
 
 VERSION = 'gabriel-console-orientation-v1'
 DISCOVERY_KEYS = frozenset({'title','headings','links','identification','coverage'})
@@ -125,3 +125,34 @@ def orient(snapshot, *, case_id, evidence_id, evidence_digest, source_url):
         external_actions_authorized=False,
         model_used=False,
     )
+
+
+def process(service,human,peer,context,observation_id,snapshot):
+    """Bind a visible-structure review to accessible, verified browser evidence."""
+    observation_id=identifier(observation_id)
+    with connection(service._dsn) as conn:
+        p,lease,_=service._observer(conn,human,peer,context)
+        if not lease['discovery_enabled']:
+            raise AccessDenied('console_orientation_discovery_consent_required')
+        observation=service._observation(conn,p,observation_id)
+        if observation['lease_id']!=lease['id'] or observation['state']!='captured':
+            raise AccessDenied('console_orientation_capture_required')
+        if conn.execute('''SELECT 1 FROM gabriel_identity.browser_navigation_receipts r
+                JOIN gabriel_identity.browser_navigation_intents i ON (i.organization_id,i.id)=(r.organization_id,r.intent_id)
+                JOIN gabriel_identity.browser_navigation_grants g ON (g.organization_id,g.id)=(i.organization_id,i.grant_id)
+                WHERE r.organization_id=%s AND g.lease_id=%s AND r.created_at>=%s''',
+                (p.organization_id,lease['id'],observation['created_at'])).fetchone():
+            raise AccessDenied('console_orientation_page_binding_changed')
+        artifact=service._captured_artifact(conn,p,observation,lease)
+        service._verify(conn,artifact)
+        service._custody(conn,p,artifact,'accessed')
+        value=orient(snapshot,case_id=str(lease['case_id']),evidence_id=str(artifact['id']),
+            evidence_digest=artifact['digest'],source_url=context['page_url'])
+        case_id=lease['case_id'];parent_id=artifact['id']
+    holder=service.acquire(human,case_id,uuid5(observation_id,VERSION),canonical(value).decode(),
+        'Browser console orientation - analyst review required',approved=True,parent_id=parent_id,
+        redaction_state='user_declared_redacted')
+    with connection(service._dsn) as conn:
+        p,_,_=service._observer(conn,human,peer,context)
+        _audit(conn,'browser.console_orientation_reviewed',p,observation_id)
+    return dict(value,orientation_evidence_id=str(holder['id']))

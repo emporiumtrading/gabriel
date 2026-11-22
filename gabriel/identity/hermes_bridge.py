@@ -3,7 +3,9 @@ from hashlib import sha256
 import http.client
 import json
 import logging
+import os
 import re
+import ssl
 from pathlib import Path
 
 from gabriel.identity.evidence_store import canonical
@@ -20,10 +22,12 @@ def runtime_digest():
 
 
 def request(path,packet=None):
-    client=http.client.HTTPConnection('hermes',8451,timeout=40)
+    context=ssl.create_default_context(cafile=os.environ['GABRIEL_TOOLBUS_CA_FILE'])
+    client=http.client.HTTPSConnection('hermes',8451,context=context,timeout=40)
     try:
         client.request('GET' if packet is None else 'POST',path,
-            body=canonical(packet) if packet is not None else None,headers={'Content-Type':'application/json'})
+            body=canonical(packet) if packet is not None else None,headers={'Content-Type':'application/json',
+                'Authorization':'Bearer '+Path(os.environ['GABRIEL_TOOLBUS_TOKEN_FILE']).read_text().strip()})
         response=client.getresponse();raw=response.read(32769)
         if len(raw)>32768:raise ValueError
         result=json.loads(raw)

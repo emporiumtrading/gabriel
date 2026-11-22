@@ -6,7 +6,9 @@ from hashlib import sha256
 import http.client
 import json
 import math
+import os
 from pathlib import Path
+import ssl
 
 from gabriel.identity.evidence_store import canonical
 from gabriel.identity.catalog_dfir_artifacts import SKILLS as DFIR_ARTIFACT_SKILLS
@@ -169,10 +171,12 @@ def instructions(role):
 
 
 def remote(name,data=None):
-    client=http.client.HTTPConnection('investigation-tools',8450,timeout=7)
+    context=ssl.create_default_context(cafile=os.environ['GABRIEL_TOOLBUS_CA_FILE'])
+    client=http.client.HTTPSConnection('investigation-tools',8450,context=context,timeout=7)
+    headers={'Authorization':'Bearer '+Path(os.environ['GABRIEL_TOOLBUS_TOKEN_FILE']).read_text().strip()}
     try:
-        if name=='inspect_toolkit':client.request('GET','/health')
-        else:client.request('POST','/analyze',body=canonical(dict(tool=name,data=base64.b64encode(data).decode())),headers={'Content-Type':'application/json'})
+        if name=='inspect_toolkit':client.request('GET','/health',headers=headers)
+        else:client.request('POST','/analyze',body=canonical(dict(tool=name,data=base64.b64encode(data).decode())),headers=dict(headers,**{'Content-Type':'application/json'}))
         response=client.getresponse();raw=response.read(8193)
         if response.status!=200 or len(raw)>8192:raise ValueError
         result=json.loads(raw)

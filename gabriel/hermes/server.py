@@ -1,13 +1,20 @@
 """Private bounded gateway; no credentials, database, evidence mounts or egress."""
 from hashlib import sha256
+import hmac
+import http.client
 from http.server import BaseHTTPRequestHandler,HTTPServer
 import json
 import os
 from pathlib import Path
 import subprocess
 import tempfile
+import ssl
 
 from runtime import VERSION,UPSTREAM
+
+
+def secret(name):
+    return Path(os.environ[name]).read_text().strip()
 
 
 def fingerprint():
@@ -26,7 +33,11 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(status);self.send_header('Content-Type','application/json')
         self.send_header('Content-Length',str(len(data)));self.end_headers();self.wfile.write(data)
 
+    def authenticated(self):
+        return hmac.compare_digest(self.headers.get('Authorization',''),'Bearer '+secret('GABRIEL_TOOLBUS_TOKEN_FILE'))
+
     def do_GET(self):
+        if not self.authenticated(): return self.reply(403,{'error':'denied'})
         if self.path!='/health':return self.reply(404,{'error':'not_found'})
         try:
             p=json.loads(Path('/etc/hermes/image-provenance.json').read_text())
@@ -35,6 +46,7 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:self.reply(503,{'error':'hermes_source_unavailable'})
 
     def do_POST(self):
+        if not self.authenticated(): return self.reply(403,{'error':'denied'})
         if self.path!='/turn':return self.reply(404,{'error':'not_found'})
         try:
             n=int(self.headers.get('Content-Length','0'))
@@ -58,6 +70,17 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__=='__main__':
+    if len(__import__('sys').argv)==2 and __import__('sys').argv[1]=='health':
+        context=ssl.create_default_context(cafile=os.environ['GABRIEL_TOOLBUS_CA_FILE'])
+        client=http.client.HTTPSConnection('localhost',8451,context=context,timeout=2)
+        try:
+            client.request('GET','/health',headers={'Authorization':'Bearer '+secret('GABRIEL_TOOLBUS_TOKEN_FILE')})
+            response=client.getresponse();response.read()
+            raise SystemExit(0 if response.status==200 else 1)
+        finally: client.close()
     server=HTTPServer(('0.0.0.0',8451),Handler)
     server.timeout=40
+    context=ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER);context.minimum_version=ssl.TLSVersion.TLSv1_2
+    context.load_cert_chain(os.environ['GABRIEL_TOOLBUS_CERT_FILE'],os.environ['GABRIEL_TOOLBUS_KEY_FILE'])
+    server.socket=context.wrap_socket(server.socket,server_side=True)
     server.serve_forever()

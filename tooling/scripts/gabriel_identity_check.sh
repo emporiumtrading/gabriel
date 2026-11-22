@@ -19,6 +19,8 @@ export GABRIEL_PROVIDER_KEY_DIR="$work_dir/provider-keys"
 python3 tooling/scripts/gabriel_provider_keys.py "$GABRIEL_PROVIDER_KEY_DIR"
 export GABRIEL_EVIDENCE_KEY_DIR="$work_dir/evidence-keys"
 python3 tooling/scripts/gabriel_evidence_keys.py "$GABRIEL_EVIDENCE_KEY_DIR"
+export GABRIEL_TOOLBUS_TLS_DIR="$work_dir/toolbus"
+python3 tooling/scripts/gabriel_toolbus_prepare.py "$GABRIEL_TOOLBUS_TLS_DIR"
 project="gabriel-id-check-$$-${RANDOM}"
 if [[ -n "$(docker ps -aq --filter "label=com.docker.compose.project=$project")" ]]; then
     echo 'BLOCKED: disposable project name already exists.' >&2

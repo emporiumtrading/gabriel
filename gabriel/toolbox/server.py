@@ -1,16 +1,24 @@
 """Private-network toolbox: bounded stdin, fixed subprocess, no secrets or mounts."""
 import base64
 from hashlib import sha256
+import hmac
+import http.client
 from http.server import BaseHTTPRequestHandler,HTTPServer
 from importlib.metadata import version
 import json
+import os
 from pathlib import Path
+import ssl
 import subprocess
 import sys
 
 MAX_WIRE=1500000
 TOOLS={'scan_artifacts','inspect_packets','inspect_logs'}
 ENGINE=Path(__file__).with_name('engine.py')
+
+
+def secret(name):
+    return Path(os.environ[name]).read_text().strip()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -21,13 +29,18 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(status);self.send_header('Content-Type','application/json')
         self.send_header('Content-Length',str(len(raw)));self.end_headers();self.wfile.write(raw)
 
+    def authenticated(self):
+        return hmac.compare_digest(self.headers.get('Authorization',''),'Bearer '+secret('GABRIEL_TOOLBUS_TOKEN_FILE'))
+
     def do_GET(self):
+        if not self.authenticated(): return self.reply(403,dict(status='denied'))
         if self.path!='/health':return self.reply(404,dict(status='not_found'))
         return self.reply(200,dict(status='ready',packages={p:version(p) for p in ('yara-python','dpkt')},
             tools=sorted(TOOLS),engine_sha256=sha256(ENGINE.read_bytes()).hexdigest(),credential_access=False,network_actions=False))
 
     def do_POST(self):
         try:
+            if not self.authenticated(): return self.reply(403,dict(status='denied'))
             self.connection.settimeout(5)
             size=int(self.headers.get('Content-Length','0'))
             if self.path!='/analyze' or not 1<=size<=MAX_WIRE:raise ValueError
@@ -53,7 +66,19 @@ class BoundedServer(HTTPServer):
 
 
 def main():
-    BoundedServer(('0.0.0.0',8450),Handler).serve_forever()
+    if len(sys.argv)==2 and sys.argv[1]=='health':
+        context=ssl.create_default_context(cafile=os.environ['GABRIEL_TOOLBUS_CA_FILE'])
+        client=http.client.HTTPSConnection('localhost',8450,context=context,timeout=2)
+        try:
+            client.request('GET','/health',headers={'Authorization':'Bearer '+secret('GABRIEL_TOOLBUS_TOKEN_FILE')})
+            response=client.getresponse();response.read()
+            raise SystemExit(0 if response.status==200 else 1)
+        finally: client.close()
+    server=BoundedServer(('0.0.0.0',8450),Handler)
+    context=ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER);context.minimum_version=ssl.TLSVersion.TLSv1_2
+    context.load_cert_chain(os.environ['GABRIEL_TOOLBUS_CERT_FILE'],os.environ['GABRIEL_TOOLBUS_KEY_FILE'])
+    server.socket=context.wrap_socket(server.socket,server_side=True)
+    server.serve_forever()
 
 
 if __name__=='__main__':main()

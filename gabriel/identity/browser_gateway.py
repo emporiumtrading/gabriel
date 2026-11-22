@@ -20,7 +20,7 @@ from gabriel.identity.cli import read_secret
 from gabriel.identity.service import AccessDenied,IdentityError,IdentityUnavailable,_digest,connection
 
 MAX_BODY = 262144
-OPERATIONS = {'claim','heartbeat','observe','status','receipts','disconnect','navigation-plan','navigation-prepare','navigation-complete','events-review','specialists-review','text-review','ai-review'}
+OPERATIONS = {'claim','heartbeat','observe','status','receipts','disconnect','navigation-plan','navigation-prepare','navigation-complete','events-review','specialists-review','text-review','orientation-review','ai-review'}
 
 
 def endpoint(value):
@@ -197,6 +197,10 @@ class BrowserGateway:
                         or approved_context(body['context'])!=self.context): raise AccessDenied('gateway_scope_changed')
                 method={'events-review':self.service.review_browser_events,'specialists-review':self.service.review_browser_specialists,'text-review':self.service.review_browser_text}[operation]
                 return method(self._human,self._peer,body['context'],body['observation_id'])
+            if operation=='orientation-review':
+                if (not isinstance(self.service,BrowserNavigationService) or set(body)!={'context','observation_id','snapshot'}
+                        or approved_context(body['context'])!=self.context): raise AccessDenied('gateway_scope_changed')
+                return self.service.review_console_orientation(self._human,self._peer,body['context'],body['observation_id'],body['snapshot'])
             if set(body)!={'context'} or approved_context(body['context'])!=self.context:
                 raise AccessDenied('gateway_scope_changed')
             if operation=='heartbeat': return self.service.heartbeat_browser(self._peer,self.context)

@@ -11,13 +11,18 @@ import re
 import stat
 import subprocess
 import sys
+import tarfile
 from uuid import uuid4
 
 from gabriel_identity_prepare import prepare as database_secrets
 from gabriel_provider_keys import prepare as keyring
+from gabriel_toolbus_prepare import prepare as toolbus_secrets
 
 REPO=Path(__file__).resolve().parents[2]
 COMPOSE=REPO/'compose.gabriel-installation.yml'
+MAX_BACKUP_BYTES=128*1024*1024
+MAX_EVIDENCE_OBJECTS=4096
+EVIDENCE_MEMBER=re.compile(r'\./[0-9a-f]{32}\.gbe')
 NETWORK_CHECK="""import json,socket
 result={'version':'gabriel-install-network-v1','dns_resolves':False,'tcp_reachable':False}
 try:
@@ -136,6 +141,7 @@ def prepare(root,port,image):
     keyring(root/'provider')
     keyring(root/'evidence',purpose='evidence-v1')
     prepare_tls(root/'tls',image)
+    toolbus_secrets(root/'toolbus')
     publish_database_tls(root,image)
     manifest=dict(schema_version=1,purpose='gabriel-local-test-installation-v1',project='gabriel-install-'+uuid4().hex[:16],
         port=port,image=image,source=run(['git','rev-parse','HEAD']).decode().strip(),production_admitted=False)
@@ -250,6 +256,7 @@ class Installation:
             self.compose('exec','-T','identity-db','pg_dump','-U','postgres','-d','gabriel','--format=custom',output=stream)
         with (destination/'evidence.tar.gz').open('xb') as stream:
             self.compose('run','--rm','--no-deps','-T','--entrypoint','tar','operator','-czf','-','-C','/var/lib/gabriel-evidence','.',output=stream)
+        validate_backup_files(destination)
         manifest=dict(schema_version=1,purpose='gabriel-quiesced-test-backup-v1',image=self.config['image'],source=self.config['source'],
             identity=receipt,files={name:digest(destination/name) for name in ('database.dump','evidence.tar.gz')},
             key_fingerprints={name:digest(self.root/name/'keyring.json') for name in ('provider','evidence')})
@@ -321,8 +328,8 @@ print(json.dumps({'migrated':True}))
                 or manifest['image']!=self.config['image'] or manifest['source']!=self.config['source']
                 or set(manifest['files'])!={'database.dump','evidence.tar.gz'} or set(manifest['key_fingerprints'])!={'provider','evidence'}):
             raise ValueError('matching_source_backup_required')
+        validate_backup_files(backup)
         for name,value in manifest['files'].items():
-            if (backup/name).stat().st_size>128*1024*1024: raise ValueError('test_backup_restore_limit')
             if digest(backup/name)!=value: raise ValueError('backup_digest_mismatch')
         for name,value in manifest['key_fingerprints'].items():
             if digest(keys/name/'keyring.json')!=value: raise ValueError('original_keys_required')
@@ -361,6 +368,27 @@ def digest(path):
     with path.open('rb') as stream:
         for block in iter(lambda:stream.read(1024*1024),b''): value.update(block)
     return value.hexdigest()
+
+
+def validate_backup_files(directory):
+    for name in ('database.dump','evidence.tar.gz'):
+        info=(directory/name).lstat()
+        if not stat.S_ISREG(info.st_mode) or not 0<info.st_size<=MAX_BACKUP_BYTES:
+            raise ValueError('test_backup_file_limit')
+    objects=set();expanded=0
+    try:
+        with tarfile.open(directory/'evidence.tar.gz',mode='r:gz') as archive:
+            for member in archive:
+                if member.name=='.' and member.isdir(): continue
+                if (not member.isfile() or EVIDENCE_MEMBER.fullmatch(member.name) is None
+                        or member.name in objects or not 29<=member.size<=128*1024+28
+                        or len(objects)>=MAX_EVIDENCE_OBJECTS):
+                    raise ValueError('invalid_evidence_archive')
+                objects.add(member.name);expanded+=member.size
+                if expanded>MAX_BACKUP_BYTES: raise ValueError('test_backup_expanded_limit')
+    except tarfile.TarError:
+        raise ValueError('invalid_evidence_archive') from None
+    return {'evidence_objects':len(objects),'expanded_bytes':expanded}
 
 
 def password(args):

@@ -81,10 +81,13 @@ def main():
         assert set(config['services']['workbench']['networks'])=={'private','toolbus'}
         toolbox=config['services']['investigation-tools']
         assert config['networks']['toolbus']['internal'] and set(toolbox['networks'])=={'toolbus'}
-        assert not toolbox.get('secrets') and not toolbox.get('volumes') and not toolbox.get('ports') and not toolbox.get('environment')
+        assert {s['source'] for s in toolbox['secrets']}=={'toolbus_ca','toolbus_certificate','toolbus_key','toolbus_token'}
+        assert not toolbox.get('volumes') and not toolbox.get('ports')
+        assert set(toolbox['environment'])=={'GABRIEL_TOOLBUS_CA_FILE','GABRIEL_TOOLBUS_CERT_FILE','GABRIEL_TOOLBUS_KEY_FILE','GABRIEL_TOOLBUS_TOKEN_FILE'}
         assert toolbox['read_only'] and toolbox['cap_drop']==['ALL'] and toolbox['user']=='10001:10001'
         hermes=config['services']['hermes']
-        assert set(hermes['networks'])=={'toolbus'} and not hermes.get('secrets') and not hermes.get('volumes') and not hermes.get('ports')
+        assert set(hermes['networks'])=={'toolbus'} and not hermes.get('volumes') and not hermes.get('ports')
+        assert {s['source'] for s in hermes['secrets']}=={'toolbus_ca','toolbus_certificate','toolbus_key','toolbus_token'}
         assert hermes['read_only'] and hermes['cap_drop']==['ALL'] and hermes['user']=='10001:10001'
         assert 'hermes' in config['services']['workbench']['depends_on']
         assert not config['services']['identity-db'].get('ports')

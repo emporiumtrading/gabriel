@@ -19,7 +19,7 @@ x-app: &app
     - workbench:/var/lib/gabriel-workbench
 services:
   identity-db:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:1d5b02d3a9941fbd52437db4107f8c52d6297dac553ca1e5c299ebb3756b4857
     environment:
       POSTGRES_DB: gabriel
       POSTGRES_PASSWORD_FILE: /run/secrets/db_password
@@ -69,7 +69,14 @@ services:
       investigation-tools:
         condition: service_healthy
     entrypoint: [python, -m, gabriel.identity.installation, serve]
-    secrets: [app_dsn, provider_keyring, evidence_keyring, tls_certificate, tls_key, tls_ca]
+    environment:
+      GABRIEL_IDENTITY_DSN_FILE: /run/secrets/app_dsn
+      GABRIEL_PROVIDER_KEYRING_FILE: /run/secrets/provider_keyring
+      GABRIEL_EVIDENCE_KEYRING_FILE: /run/secrets/evidence_keyring
+      GABRIEL_EVIDENCE_ROOT: /var/lib/gabriel-evidence
+      GABRIEL_TOOLBUS_CA_FILE: /run/secrets/toolbus_ca
+      GABRIEL_TOOLBUS_TOKEN_FILE: /run/secrets/toolbus_token
+    secrets: [app_dsn, provider_keyring, evidence_keyring, tls_certificate, tls_key, tls_ca, toolbus_ca, toolbus_token]
     healthcheck:
       test: [CMD, python, -m, gabriel.identity.installation, health]
       interval: 5s
@@ -89,8 +96,14 @@ services:
     cpus: 2
     networks: [toolbus]
     tmpfs: ['/tmp:rw,noexec,nosuid,nodev,size=256m']
+    environment:
+      GABRIEL_TOOLBUS_CA_FILE: /run/secrets/toolbus_ca
+      GABRIEL_TOOLBUS_CERT_FILE: /run/secrets/toolbus_certificate
+      GABRIEL_TOOLBUS_KEY_FILE: /run/secrets/toolbus_key
+      GABRIEL_TOOLBUS_TOKEN_FILE: /run/secrets/toolbus_token
+    secrets: [toolbus_ca, toolbus_certificate, toolbus_key, toolbus_token]
     healthcheck:
-      test: [CMD, /opt/hermes/.venv/bin/python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8451/health',timeout=2).read()"]
+      test: [CMD, /opt/hermes/.venv/bin/python, /opt/gabriel-hermes/server.py, health]
       interval: 3s
       timeout: 3s
       retries: 20
@@ -106,8 +119,14 @@ services:
     networks: [toolbus]
     tmpfs: ['/tmp:rw,noexec,nosuid,nodev,size=8m']
     entrypoint: [python, -m, gabriel.toolbox.server]
+    environment:
+      GABRIEL_TOOLBUS_CA_FILE: /run/secrets/toolbus_ca
+      GABRIEL_TOOLBUS_CERT_FILE: /run/secrets/toolbus_certificate
+      GABRIEL_TOOLBUS_KEY_FILE: /run/secrets/toolbus_key
+      GABRIEL_TOOLBUS_TOKEN_FILE: /run/secrets/toolbus_token
+    secrets: [toolbus_ca, toolbus_certificate, toolbus_key, toolbus_token]
     healthcheck:
-      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8450/health',timeout=2).read()"]
+      test: [CMD, python, -m, gabriel.toolbox.server, health]
       interval: 3s
       timeout: 3s
       retries: 15
@@ -160,3 +179,11 @@ secrets:
     file: ${GABRIEL_INSTALL_ROOT}/tls/server.key
   tls_ca:
     file: ${GABRIEL_INSTALL_ROOT}/tls/ca.pem
+  toolbus_ca:
+    file: ${GABRIEL_INSTALL_ROOT}/toolbus/ca.pem
+  toolbus_certificate:
+    file: ${GABRIEL_INSTALL_ROOT}/toolbus/server.pem
+  toolbus_key:
+    file: ${GABRIEL_INSTALL_ROOT}/toolbus/server.key
+  toolbus_token:
+    file: ${GABRIEL_INSTALL_ROOT}/toolbus/token
