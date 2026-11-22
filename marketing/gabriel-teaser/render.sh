@@ -3,18 +3,19 @@ set -euo pipefail
 
 mkdir -p build/assets build/scenes
 
-download() {
-  local url="$1"
+copy_asset() {
+  local source="$1"
   local dest="$2"
-  curl --fail --location --retry 3 --retry-delay 2 "$url" --output "$dest"
+  test -f "$source"
+  cp "$source" "$dest"
 }
 
-download "https://sdmntprwestus3.oaiusercontent.com/files/00000000-4474-81fd-96d4-62396a749777/raw?se=2026-11-16T23%3A53%3A31Z&sp=r&sv=2026-06-06&sr=b&scid=01a1e68f-88f5-74b1-a582-cdbd6da519ee&skoid=434ec24f-a0f0-4e64-b0de-2e2053f69735&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-11-16T16%3A22%3A06Z&ske=2026-11-17T16%3A22%3A06Z&sks=b&skv=2026-06-06&sig=Hz/u7yA4odR4a%2B0UR8GMvGLfjNzOQdatv5HudVRyIGs%3D" "build/assets/signin.png"
-download "https://sdmntprwestus3.oaiusercontent.com/files/00000000-e094-81fd-9844-51eaa2d1d86b/raw?se=2026-11-16T23%3A53%3A31Z&sp=r&sv=2026-06-06&sr=b&scid=01a1e68f-88f5-74b1-a582-cdbd6da519ee&skoid=434ec24f-a0f0-4e64-b0de-2e2053f69735&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-11-16T14%3A30%3A37Z&ske=2026-11-17T14%3A30%3A37Z&sks=b&skv=2026-06-06&sig=nautDGHygheRnx03JSwKSTSd0mNaPwKMSqwR%2B/GcT%2Bg%3D" "build/assets/workspace.png"
-download "https://sdmntprwestus.oaiusercontent.com/files/00000000-b8d0-8230-8d7b-00176b1f9b45/raw?se=2026-11-16T23%3A53%3A31Z&sp=r&sv=2026-06-06&sr=b&scid=01a1e68f-88f5-74b1-a582-cdbd6da519ee&skoid=434ec24f-a0f0-4e64-b0de-2e2053f69735&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-11-16T14%3A48%3A16Z&ske=2026-11-17T14%3A48%3A16Z&sks=b&skv=2026-06-06&sig=Ams1w4iwv7IMFe90tlqU86MI4smp1VddY0bOU%2BSjx5Y%3D" "build/assets/specialists.png"
-download "https://sdmntprcentralus.oaiusercontent.com/files/00000000-c668-81f5-9726-52539d368f40/raw?se=2026-11-16T23%3A53%3A31Z&sp=r&sv=2026-06-06&sr=b&scid=01a1e68f-88f5-74b1-a582-cdbd6da519ee&skoid=434ec24f-a0f0-4e64-b0de-2e2053f69735&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-11-16T14%3A52%3A53Z&ske=2026-11-17T14%3A52%3A53Z&sks=b&skv=2026-06-06&sig=yW1LOtN3%2B9PKA0zCpMFpMj8y1pFq7kSS33SAG/Qs7mo%3D" "build/assets/controls.png"
-download "https://sdmntprwestus3.oaiusercontent.com/files/00000000-02dc-81fd-ab03-80de8aab9ec7/raw?se=2026-11-16T23%3A53%3A31Z&sp=r&sv=2026-06-06&sr=b&scid=01a1e68f-88f5-74b1-a582-cdbd6da519ee&skoid=434ec24f-a0f0-4e64-b0de-2e2053f69735&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-11-16T14%3A38%3A24Z&ske=2026-11-17T14%3A38%3A24Z&sks=b&skv=2026-06-06&sig=9iBRsWYePRPHY4XMruOw%2BfhaOXXogz00bXDx6zYwwqI%3D" "build/assets/mobile.png"
-download "https://sdmntpreastus3.oaiusercontent.com/files/00000000-981c-8212-bb40-c84baae3b562/raw?se=2026-11-16T23%3A53%3A31Z&sp=r&sv=2026-06-06&sr=b&scid=01a1e68f-88f5-74b1-a582-cdbd6da519ee&skoid=434ec24f-a0f0-4e64-b0de-2e2053f69735&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-11-16T13%3A47%3A09Z&ske=2026-11-17T13%3A47%3A09Z&sks=b&skv=2026-06-06&sig=uW5gjj6SAM/4%2BlYiqy29uhJh9YZyMb3cs3CRKruAYPk%3D" "build/assets/setup.png"
+copy_asset "docs/assets/gabriel/screenshots/investigations.png" "build/assets/signin.png"
+copy_asset "docs/assets/gabriel/screenshots/case-workspace.png" "build/assets/workspace.png"
+copy_asset "docs/assets/gabriel/screenshots/specialist-assessments.png" "build/assets/specialists.png"
+copy_asset "docs/assets/gabriel/screenshots/spending-controls.png" "build/assets/controls.png"
+copy_asset "docs/assets/gabriel/screenshots/mobile-case.png" "build/assets/mobile.png"
+copy_asset "docs/assets/gabriel/actions/preview-preflight.png" "build/assets/setup.png"
 
 FONT="/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 FONT_BOLD="/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
