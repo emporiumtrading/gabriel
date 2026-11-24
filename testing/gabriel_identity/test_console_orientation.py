@@ -73,6 +73,29 @@ def test_sensitive_route_terms_in_hostname_do_not_filter_read_only_paths():
     assert review(visible(destination), source_url=source)['read_only_candidates'] == [destination]
 
 
+def test_nonsecret_query_routes_are_admitted_but_sensitive_queries_fail_closed():
+    source = 'https://console.example.org/unfamiliar-audit?view=recent'
+    destination = 'https://console.example.org/alerts?range=recent'
+    row = review(visible(
+        destination,
+        'https://console.example.org/alerts?view=delete',
+        'https://console.example.org/alerts?token=hidden',
+        'https://console.example.org/alerts?filter=secret',
+    ), source_url=source)
+    assert row['source_url'] == source
+    assert row['read_only_candidates'] == [destination]
+
+
+def test_orientation_query_routes_still_reject_fragments_and_unsafe_actions():
+    for unsafe_url in [
+        'https://console.example.org/alerts?view=delete',
+        'https://console.example.org/alerts?action=disable',
+        'https://console.example.org/alerts#recent',
+    ]:
+        with pytest.raises(InvalidConsoleOrientation):
+            review(visible('https://console.example.org/events'), source_url=unsafe_url)
+
+
 def test_static_visible_links_only_does_not_claim_dynamic_or_iframe_coverage():
     row=review(visible())
     assert row['status']=='no_supported_navigation_candidates'

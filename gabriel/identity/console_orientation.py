@@ -20,10 +20,10 @@ MAX_LINKS = 100
 MAX_CANDIDATES = 20
 UUID_ERROR = 'invalid_console_orientation_input'
 SENSITIVE_ROUTE = re.compile(
-    r'(?:^|[/?#._-])(?:login|signin|sign-in|logout|signout|oauth|sso|mfa|password|'
+    r'(?:^|[/?#._=&-])(?:login|signin|sign-in|logout|signout|oauth|sso|mfa|password|'
     r'token|secret|key|credential|delete|remove|disable|enable|execute|apply|save|'
     r'create|reset|reboot|shutdown|terminate|block|unblock|approve|revoke|edit|'
-    r'settings|configuration)(?:$|[/?#._-])',
+    r'settings|configuration)(?:$|[/?#._=&-])',
     re.I,
 )
 
@@ -49,7 +49,7 @@ def valid_uuid(value):
 def checked_orientation_url(url):
     require(type(url) is str and 1 <= len(url) <= 1024)
     parsed, decoded = checked_page_url(url, BROWSER_VERSION)
-    require(not parsed.query and not parsed.fragment)
+    require(not parsed.fragment)
     require(not any(ord(c) < 33 or ord(c) == 127 for c in decoded))
     decoded_route = urlsplit(decoded)
     require(not SENSITIVE_ROUTE.search(decoded_route.path + '?' + decoded_route.query + '#' + decoded_route.fragment))

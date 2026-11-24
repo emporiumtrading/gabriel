@@ -13,7 +13,7 @@ RUN apk add --no-cache build-base curl \
     && python -c "import hashlib,pathlib; p=pathlib.Path('/tmp/sqlite.tar.gz'); assert hashlib.sha3_256(p.read_bytes()).hexdigest()=='${SQLITE_SHA3_256}'" \
     && tar -xzf /tmp/sqlite.tar.gz -C /tmp \
     && cd "/tmp/sqlite-autoconf-${SQLITE_AUTOCONF_VERSION}" \
-    && CFLAGS='-O2 -DSQLITE_ENABLE_FTS5 -DSQLITE_ENABLE_SESSION -DSQLITE_SECURE_DELETE' \
+    && CFLAGS='-O2 -DSQLITE_ENABLE_FTS5 -DSQLITE_ENABLE_PREUPDATE_HOOK -DSQLITE_ENABLE_SESSION -DSQLITE_SECURE_DELETE' \
         ./configure --prefix=/opt/sqlite-fixed --disable-static \
     && make -j"$(nproc)" \
     && make install

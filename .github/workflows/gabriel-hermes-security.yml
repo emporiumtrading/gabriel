@@ -12,6 +12,8 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+      - name: Prepare retained evidence directories
+        run: mkdir -p "$RUNNER_TEMP/hermes-profile" "$RUNNER_TEMP/hermes-security"
       - name: Record minimal Python base identity
         run: docker buildx imagetools inspect python:3.13.18-alpine3.24 --format '{{.Manifest.Digest}}'
       - name: Build pinned required supervisor image
