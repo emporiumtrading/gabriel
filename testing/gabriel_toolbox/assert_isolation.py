@@ -10,12 +10,12 @@ assert row['HostConfig']['CapDrop']==['ALL']
 assert 'no-new-privileges:true' in row['HostConfig']['SecurityOpt']
 assert not row['HostConfig']['PortBindings']
 mounts={(m['Type'],m['Destination']):m for m in row['Mounts']}
-expected={('tmpfs','/tmp'),
-    ('bind','/run/secrets/toolbus_ca'),('bind','/run/secrets/toolbus_certificate'),
+expected={('bind','/run/secrets/toolbus_ca'),('bind','/run/secrets/toolbus_certificate'),
     ('bind','/run/secrets/toolbus_key'),('bind','/run/secrets/toolbus_token')}
 assert set(mounts)==expected
-assert mounts[('tmpfs','/tmp')]['RW']
-assert all(not mounts[key]['RW'] for key in expected if key[0]=='bind')
+tmpfs=row['HostConfig']['Tmpfs']
+assert set(tmpfs)=={'/tmp'} and {'rw','noexec','nosuid','nodev'}<=set(tmpfs['/tmp'].split(','))
+assert all(not mounts[key]['RW'] for key in expected)
 assert list(row['NetworkSettings']['Networks'])==['gabriel-tool-check_toolbus']
 allowed={'GABRIEL_TOOLBUS_CA_FILE','GABRIEL_TOOLBUS_CERT_FILE','GABRIEL_TOOLBUS_KEY_FILE','GABRIEL_TOOLBUS_TOKEN_FILE'}
 assert not any(e.split('=',1)[0].startswith(('GABRIEL_','OPENROUTER_','OPENAI_','ANTHROPIC_','DATABASE_')) and e.split('=',1)[0] not in allowed for e in row['Config']['Env'])

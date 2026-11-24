@@ -437,7 +437,7 @@ def ai_journey(cdp,family,service,human,tls,root,console_origin,extension_origin
         CONSOLE_MODES.clear()
 
 
-def discovery_journey(cdp,family,service,human,tls,root,env,console_origin,extension_origin,port):
+def discovery_journey(cdp,family,service,human,tls,root,env,console_origin,extension_origin,port,output):
     mark(family+':console-agnostic-discovery')
     CONSOLE_MODES.clear()
     CONSOLE_MODES['/unfamiliar-dashboard']='agnostic'
@@ -480,8 +480,19 @@ def discovery_journey(cdp,family,service,human,tls,root,env,console_origin,exten
             def reviewed_state():
                 state=cdp.evaluate(popup,'chrome.runtime.sendMessage({operation:"state"}).then(x=>x.result)')
                 sections=(state.get('tour') or {}).get('sections') or []
-                return state if sections and 'text_review' in sections[-1] else None
+                return state if (state.get('monitoring') or {}).get('error') or sections and 'text_review' in sections[-1] else None
             state=wait_for(reviewed_state,20)
+            if (state.get('monitoring') or {}).get('error'):
+                diagnostic={'monitoring':state['monitoring'],'tour':state.get('tour'),'direct_review':'not_attempted'}
+                try:
+                    peer=read_document(directory/'peer.json',private=True)['token']
+                    observation_id=state['tour']['sections'][-1]['observation_id']
+                    navigation.review_browser_text(human,peer,state['context'],observation_id)
+                    diagnostic['direct_review']='succeeded_after_gateway_failure'
+                except Exception as error:
+                    diagnostic['direct_review']=type(error).__name__+':'+str(error)
+                (output/(family+'-discovery-diagnostic.json')).write_text(json.dumps(diagnostic,sort_keys=True))
+                raise AssertionError('discovery_monitoring_interrupted')
             assert state['monitoring']['interface_title']=='Harbor Security Workspace'
             assert state['tour']['sections'][-1]['text_review']['candidate_count']==1
             assert state['monitoring']['candidate_count']==1
@@ -904,7 +915,7 @@ def run_browser(family,executable,output):
             gateway.terminate();gateway.wait(timeout=10);gateway=None
             navigation_checks=navigation_journey(cdp,family,service,human,tls,root,env,target,console,
                 'https://localhost:'+str(server.server_port),origin,gateway_port)
-            discovery_checks=discovery_journey(cdp,family,service,human,tls,root,env,'https://localhost:'+str(server.server_port),origin,gateway_port)
+            discovery_checks=discovery_journey(cdp,family,service,human,tls,root,env,'https://localhost:'+str(server.server_port),origin,gateway_port,output)
             ai_protocol_checks=ai_journey(cdp,family,service,human,tls,root,'https://localhost:'+str(server.server_port),origin,gateway_port)
             monitoring_checks=monitoring_journey(cdp,family,service,human,tls,root,env,'https://localhost:'+str(server.server_port),origin,gateway_port,output)
             executable_version=subprocess.run([executable,'--version'],check=True,capture_output=True,text=True,timeout=5).stdout.strip()

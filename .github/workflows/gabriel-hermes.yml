@@ -24,6 +24,7 @@ jobs:
           export GABRIEL_PROVIDER_KEY_DIR="$RUNNER_TEMP/hermes-provider"
           export GABRIEL_EVIDENCE_KEY_DIR="$RUNNER_TEMP/hermes-evidence"
           export GABRIEL_TOOLBUS_TLS_DIR="$RUNNER_TEMP/hermes-toolbus"
+          mkdir -p "$RUNNER_TEMP/hermes-qualification"
           python3 tooling/scripts/gabriel_identity_prepare.py "$GABRIEL_IDENTITY_SECRET_DIR"
           python3 tooling/scripts/gabriel_provider_keys.py "$GABRIEL_PROVIDER_KEY_DIR"
           python3 tooling/scripts/gabriel_evidence_keys.py "$GABRIEL_EVIDENCE_KEY_DIR"
@@ -31,8 +32,12 @@ jobs:
           compose=(docker compose -p gabriel-hermes-check -f compose.gabriel-identity.yml -f compose.gabriel-tool-tests.yml -f compose.gabriel-hermes-tests.yml)
           trap '"${compose[@]}" --profile test down --volumes --remove-orphans' EXIT
           "${compose[@]}" --profile test build identity-tests investigation-tools hermes
-          "${compose[@]}" up -d --wait identity-db investigation-tools hermes
-          mkdir -p "$RUNNER_TEMP/hermes-qualification"
+          if ! "${compose[@]}" up -d --wait identity-db investigation-tools hermes; then
+            "${compose[@]}" ps >&2 || true
+            docker inspect gabriel-hermes-check-hermes-1 --format '{{json .State.Health}}' >&2 || true
+            "${compose[@]}" logs --no-color --tail 200 hermes investigation-tools >&2 || true
+            exit 1
+          fi
           git rev-parse HEAD > "$RUNNER_TEMP/hermes-qualification/source-sha.txt"
           "${compose[@]}" --profile test run --rm --no-deps -T --entrypoint python identity-tests -m gabriel.identity.hermes_qualification --configurations > "$RUNNER_TEMP/hermes-qualification/configurations.json"
           "${compose[@]}" --profile test run --rm --no-deps -T --entrypoint python identity-tests -m pytest -q --assert=plain --tb=short testing/gabriel_identity/test_hermes_supervisor_integration.py::test_hermes_plans_delegates_two_independent_agents_reports_and_replays
