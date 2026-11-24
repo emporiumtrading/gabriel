@@ -29,6 +29,12 @@ fi
 compose=(docker compose --project-name "$project" --file compose.gabriel-identity.yml --file compose.gabriel-tool-tests.yml --file compose.gabriel-hermes-tests.yml)
 cleanup() {
     status=$?
+    if (( status != 0 )); then
+        "${compose[@]}" ps > "$report_dir/compose-ps.txt" 2>&1 || true
+        "${compose[@]}" logs --no-color --tail 200 hermes investigation-tools > "$report_dir/toolbus-services.log" 2>&1 || true
+        cat "$report_dir/compose-ps.txt" >&2 || true
+        cat "$report_dir/toolbus-services.log" >&2 || true
+    fi
     "${compose[@]}" --profile test --profile operator down --volumes --remove-orphans >/dev/null 2>&1 || true
     exit "$status"
 }

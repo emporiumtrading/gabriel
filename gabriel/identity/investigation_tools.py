@@ -171,10 +171,11 @@ def instructions(role):
 
 
 def remote(name,data=None):
-    context=ssl.create_default_context(cafile=os.environ['GABRIEL_TOOLBUS_CA_FILE'])
-    client=http.client.HTTPSConnection('investigation-tools',8450,context=context,timeout=7)
-    headers={'Authorization':'Bearer '+Path(os.environ['GABRIEL_TOOLBUS_TOKEN_FILE']).read_text().strip()}
+    client=None
     try:
+        context=ssl.create_default_context(cafile=os.environ['GABRIEL_TOOLBUS_CA_FILE'])
+        client=http.client.HTTPSConnection('investigation-tools',8450,context=context,timeout=7)
+        headers={'Authorization':'Bearer '+Path(os.environ['GABRIEL_TOOLBUS_TOKEN_FILE']).read_text().strip()}
         if name=='inspect_toolkit':client.request('GET','/health',headers=headers)
         else:client.request('POST','/analyze',body=canonical(dict(tool=name,data=base64.b64encode(data).decode())),headers=dict(headers,**{'Content-Type':'application/json'}))
         response=client.getresponse();raw=response.read(8193)
@@ -188,7 +189,8 @@ def remote(name,data=None):
         return minimized(name,result)
     except (OSError,http.client.HTTPException,ValueError,TypeError,KeyError):
         return dict(status='tool_unavailable',required_action='check_private_toolbox_service',automatic_installation=False)
-    finally:client.close()
+    finally:
+        if client is not None:client.close()
 
 
 def minimized(name,row):

@@ -142,7 +142,12 @@ class NetworkCheckTests(unittest.TestCase):
             files={'database.dump':'digest','evidence.tar.gz':'digest'},key_fingerprints={'provider':'digest','evidence':'digest'})
         with tempfile.TemporaryDirectory() as directory,patch.object(installer,'private'),patch.object(installer,'read',return_value=manifest),patch.object(installer,'digest',return_value='digest'):
             backup=Path(directory)
-            for name in manifest['files']: (backup/name).write_bytes(b'fixture')
+            (backup/'database.dump').write_bytes(b'fixture')
+            with installer.tarfile.open(backup/'evidence.tar.gz','w:gz') as archive:
+                body=b'x'*29
+                member=installer.tarfile.TarInfo('./'+'a'*32+'.gbe')
+                member.size=len(body)
+                archive.addfile(member,io.BytesIO(body))
             with self.assertRaisesRegex(ValueError,'fresh_restore_target_required'): app.restore(backup,backup)
         app.start_db.assert_not_called()
         app.check_network.assert_not_called()

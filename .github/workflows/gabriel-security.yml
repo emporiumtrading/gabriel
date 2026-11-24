@@ -53,12 +53,21 @@ jobs:
         run: |
           scanner=$(sed -n '2p' "$RUNNER_TEMP/gabriel-security/scanners.txt")
           mkdir -m 700 "$RUNNER_TEMP/gabriel-grype-cache"
+          cp "$GITHUB_WORKSPACE/gabriel/security/openssl-3.5.9.openvex.json" "$RUNNER_TEMP/gabriel-security/assessed-findings.openvex.json"
           docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges \
             --pids-limit 128 --memory 2g --cpus 2 --user "$(id -u):$(id -g)" \
             --tmpfs /tmp:rw,nosuid,nodev,size=256m,mode=1777 -e XDG_CACHE_HOME=/cache -e GRYPE_CHECK_FOR_APP_UPDATE=false \
             -v "$RUNNER_TEMP/gabriel-grype-cache:/cache" \
             -v "$RUNNER_TEMP/gabriel-security/sbom.json:/image/sbom.json:ro" \
-            "$scanner" sbom:/image/sbom.json -o json --fail-on high > "$RUNNER_TEMP/gabriel-security/vulnerabilities.json"
+            -v "$GITHUB_WORKSPACE/gabriel/security/openssl-3.5.9.openvex.json:/policy/assessed-findings.openvex.json:ro" \
+            "$scanner" sbom:/image/sbom.json --vex /policy/assessed-findings.openvex.json -o json --fail-on high > "$RUNNER_TEMP/gabriel-security/vulnerabilities.json"
+          jq -e '
+            def assessed: . == "CVE-2026-107493" or . == "CVE-2026-107494" or . == "CVE-2026-121482" or . == "CVE-2026-124709" or . == "CVE-2026-84786";
+            ([.matches[] | select(.vulnerability.id | assessed)] | length) == 0 and
+            ([.ignoredMatches[] | select(.vulnerability.id | assessed)] | length) == 10 and
+            all(.ignoredMatches[] | select(.vulnerability.id | assessed);
+              any(.appliedIgnoreRules[]; .["vex-status"] == "not_affected"))
+          ' "$RUNNER_TEMP/gabriel-security/vulnerabilities.json"
       - name: Scan defensive source for secrets with fully redacted output
         if: success() || failure()
         run: |

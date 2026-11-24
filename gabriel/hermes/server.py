@@ -72,7 +72,7 @@ class Handler(BaseHTTPRequestHandler):
 if __name__=='__main__':
     if len(__import__('sys').argv)==2 and __import__('sys').argv[1]=='health':
         context=ssl.create_default_context(cafile=os.environ['GABRIEL_TOOLBUS_CA_FILE'])
-        client=http.client.HTTPSConnection('localhost',8451,context=context,timeout=2)
+        client=http.client.HTTPSConnection('127.0.0.1',8451,context=context,timeout=2)
         try:
             client.request('GET','/health',headers={'Authorization':'Bearer '+secret('GABRIEL_TOOLBUS_TOKEN_FILE')})
             response=client.getresponse();response.read()

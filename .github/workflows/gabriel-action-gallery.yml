@@ -32,9 +32,13 @@ jobs:
           docker build --build-arg "LAB_UID=$(id -u)" -f testing/gabriel_gallery/Dockerfile -t gabriel-gallery-browser .
           mkdir -m 700 "$RUNNER_TEMP/gabriel-action-gallery"
           docker create --name gallery-capture --network gabriel-gallery_identity --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 256 --memory 2g --cpus 2 --user "$(id -u):$(id -g)" --tmpfs /tmp:rw,noexec,nosuid,nodev,size=512m \
-            -e GABRIEL_IDENTITY_DSN_FILE=/run/secrets/app_dsn -e GABRIEL_MIGRATION_DSN_FILE=/run/secrets/owner_dsn -e GABRIEL_GALLERY_SOURCE="$(git rev-parse HEAD)" \
+            -e GABRIEL_IDENTITY_DSN_FILE=/run/secrets/app_dsn -e GABRIEL_MIGRATION_DSN_FILE=/run/secrets/owner_dsn \
+            -e GABRIEL_TOOLBUS_CA_FILE=/run/secrets/toolbus_ca -e GABRIEL_TOOLBUS_TOKEN_FILE=/run/secrets/toolbus_token \
+            -e GABRIEL_GALLERY_SOURCE="$(git rev-parse HEAD)" \
             --mount "type=bind,src=$GABRIEL_IDENTITY_SECRET_DIR/app_dsn,dst=/run/secrets/app_dsn,readonly" \
             --mount "type=bind,src=$GABRIEL_IDENTITY_SECRET_DIR/owner_dsn,dst=/run/secrets/owner_dsn,readonly" \
+            --mount "type=bind,src=$GABRIEL_TOOLBUS_TLS_DIR/ca.pem,dst=/run/secrets/toolbus_ca,readonly" \
+            --mount "type=bind,src=$GABRIEL_TOOLBUS_TLS_DIR/token,dst=/run/secrets/toolbus_token,readonly" \
             --mount "type=bind,src=$RUNNER_TEMP/gabriel-action-gallery,dst=/output" gabriel-gallery-browser
           docker network connect gabriel-gallery_toolbus gallery-capture
           docker start -a gallery-capture

@@ -1,0 +1,77 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://gabriel.security/vex/openssl-3.5.9-r1/2026-11-24",
+  "author": "Gabriel Security Review",
+  "timestamp": "2026-11-24T16:35:00Z",
+  "version": 1,
+  "statements": [
+    {
+      "vulnerability": {"name": "CVE-2026-107493"},
+      "products": [{
+        "@id": "pkg:generic/gabriel-defender@0",
+        "subcomponents": [
+          {"@id": "pkg:apk/alpine/libcrypto3@3.5.9-r1?arch=x86_64&distro=alpine-3.24.4&upstream=openssl"},
+          {"@id": "pkg:apk/alpine/libssl3@3.5.9-r1?arch=x86_64&distro=alpine-3.24.4&upstream=openssl"},
+          {"@id": "pkg:apk/alpine/libcrypto3@3.5.9-r1?arch=aarch64&distro=alpine-3.24.4&upstream=openssl"},
+          {"@id": "pkg:apk/alpine/libssl3@3.5.9-r1?arch=aarch64&distro=alpine-3.24.4&upstream=openssl"}
+        ]
+      }],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "Gabriel does not call the low-level PEM_X509_INFO stack APIs required to reach this issue.",
+      "timestamp": "2026-11-24T16:35:00Z"
+    },
+    {
+      "vulnerability": {"name": "CVE-2026-107494"},
+      "products": [{"@id": "pkg:generic/gabriel-defender@0", "subcomponents": [
+        {"@id": "pkg:apk/alpine/libcrypto3@3.5.9-r1?arch=x86_64&distro=alpine-3.24.4&upstream=openssl"},
+        {"@id": "pkg:apk/alpine/libssl3@3.5.9-r1?arch=x86_64&distro=alpine-3.24.4&upstream=openssl"},
+        {"@id": "pkg:apk/alpine/libcrypto3@3.5.9-r1?arch=aarch64&distro=alpine-3.24.4&upstream=openssl"},
+        {"@id": "pkg:apk/alpine/libssl3@3.5.9-r1?arch=aarch64&distro=alpine-3.24.4&upstream=openssl"}
+      ]}],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "Gabriel exposes TCP TLS services only and does not create or accept OpenSSL QUIC connections.",
+      "timestamp": "2026-11-24T16:35:00Z"
+    },
+    {
+      "vulnerability": {"name": "CVE-2026-121482"},
+      "products": [{"@id": "pkg:generic/gabriel-defender@0", "subcomponents": [
+        {"@id": "pkg:apk/alpine/libcrypto3@3.5.9-r1?arch=x86_64&distro=alpine-3.24.4&upstream=openssl"},
+        {"@id": "pkg:apk/alpine/libssl3@3.5.9-r1?arch=x86_64&distro=alpine-3.24.4&upstream=openssl"},
+        {"@id": "pkg:apk/alpine/libcrypto3@3.5.9-r1?arch=aarch64&distro=alpine-3.24.4&upstream=openssl"},
+        {"@id": "pkg:apk/alpine/libssl3@3.5.9-r1?arch=aarch64&distro=alpine-3.24.4&upstream=openssl"}
+      ]}],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "Gabriel does not verify attacker-supplied CMS or PKCS#7 SignedData with CRL checking.",
+      "timestamp": "2026-11-24T16:35:00Z"
+    },
+    {
+      "vulnerability": {"name": "CVE-2026-124709"},
+      "products": [{"@id": "pkg:generic/gabriel-defender@0", "subcomponents": [
+        {"@id": "pkg:apk/alpine/libcrypto3@3.5.9-r1?arch=x86_64&distro=alpine-3.24.4&upstream=openssl"},
+        {"@id": "pkg:apk/alpine/libssl3@3.5.9-r1?arch=x86_64&distro=alpine-3.24.4&upstream=openssl"},
+        {"@id": "pkg:apk/alpine/libcrypto3@3.5.9-r1?arch=aarch64&distro=alpine-3.24.4&upstream=openssl"},
+        {"@id": "pkg:apk/alpine/libssl3@3.5.9-r1?arch=aarch64&distro=alpine-3.24.4&upstream=openssl"}
+      ]}],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "Gabriel exposes TCP TLS services only and does not run an OpenSSL QUIC server.",
+      "timestamp": "2026-11-24T16:35:00Z"
+    },
+    {
+      "vulnerability": {"name": "CVE-2026-84786"},
+      "products": [{"@id": "pkg:generic/gabriel-defender@0", "subcomponents": [
+        {"@id": "pkg:apk/alpine/libcrypto3@3.5.9-r1?arch=x86_64&distro=alpine-3.24.4&upstream=openssl"},
+        {"@id": "pkg:apk/alpine/libssl3@3.5.9-r1?arch=x86_64&distro=alpine-3.24.4&upstream=openssl"},
+        {"@id": "pkg:apk/alpine/libcrypto3@3.5.9-r1?arch=aarch64&distro=alpine-3.24.4&upstream=openssl"},
+        {"@id": "pkg:apk/alpine/libssl3@3.5.9-r1?arch=aarch64&distro=alpine-3.24.4&upstream=openssl"}
+      ]}],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "Gabriel does not enable DANE or process TLSA records in its TLS clients.",
+      "timestamp": "2026-11-24T16:35:00Z"
+    }
+  ]
+}

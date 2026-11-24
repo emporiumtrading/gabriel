@@ -22,9 +22,10 @@ def runtime_digest():
 
 
 def request(path,packet=None):
-    context=ssl.create_default_context(cafile=os.environ['GABRIEL_TOOLBUS_CA_FILE'])
-    client=http.client.HTTPSConnection('hermes',8451,context=context,timeout=40)
+    client=None
     try:
+        context=ssl.create_default_context(cafile=os.environ['GABRIEL_TOOLBUS_CA_FILE'])
+        client=http.client.HTTPSConnection('hermes',8451,context=context,timeout=40)
         client.request('GET' if packet is None else 'POST',path,
             body=canonical(packet) if packet is not None else None,headers={'Content-Type':'application/json',
                 'Authorization':'Bearer '+Path(os.environ['GABRIEL_TOOLBUS_TOKEN_FILE']).read_text().strip()})
@@ -50,9 +51,10 @@ def request(path,packet=None):
             raise ValueError
         if result.get('version')!=VERSION or result.get('upstream')!=UPSTREAM:raise ValueError
         return result
-    except (OSError,http.client.HTTPException,ValueError,TypeError,AttributeError):
+    except (OSError,http.client.HTTPException,ValueError,TypeError,AttributeError,KeyError):
         raise AccessDenied('required_hermes_runtime_unavailable') from None
-    finally:client.close()
+    finally:
+        if client is not None:client.close()
 
 
 def health():

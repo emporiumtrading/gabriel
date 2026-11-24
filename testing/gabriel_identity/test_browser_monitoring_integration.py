@@ -127,13 +127,16 @@ def test_text_review_is_receipt_bound_idempotent_and_preserves_source_quotes(ten
 
 
 def test_console_orientation_is_bound_to_verified_capture_and_never_grants_navigation(tenant,cases,case,context):
-    browser,lease,scope,gateway,ticket=enrollment(tenant,cases,case,context,monitoring_approved=True,discovery_approved=True)
+    from urllib.parse import urlsplit
+    clean_context=dict(context,page_url='https://generated-console.invalid/security')
+    browser,lease,scope,gateway,ticket=enrollment(tenant,cases,case,clean_context,monitoring_approved=True,discovery_approved=True)
     browser.connect_browser(lease.token,scope)
     captured=browser.observe_browser(tenant.token,lease.token,dict(schema_version=1,operation='browser.observe',
         request_id=str(uuid4()),sequence=1,context=scope,
         observed_at=__import__('datetime').datetime.now(__import__('datetime').timezone.utc).isoformat(),
         visibility='partial',client_minimized=True,content='Generated lab dashboard\n'))
-    snapshot=dict(title='Generated console',headings=['Overview'],links=[scope['page_url']+'/alerts'],
+    page=urlsplit(scope['page_url'])
+    snapshot=dict(title='Generated console',headings=['Overview'],links=[page.scheme+'://'+page.netloc+'/alerts'],
         identification='page-reported, unverified',coverage='partial; visible top-frame links only')
     reviewed=browser.review_console_orientation(tenant.token,lease.token,scope,captured['observation_id'],snapshot)
     assert reviewed['evidence_id']==str(captured['evidence_id'])
@@ -142,7 +145,7 @@ def test_console_orientation_is_bound_to_verified_capture_and_never_grants_navig
     stored=json.loads(browser.read_evidence(tenant.token,reviewed['orientation_evidence_id']).reveal())
     assert stored['snapshot_sha256']==reviewed['snapshot_sha256'] and stored['evidence_digest']==reviewed['evidence_digest']
 
-    other,other_lease,other_scope,_,_=enrollment(tenant,cases,case,context,tab=2,monitoring_approved=True)
+    other,other_lease,other_scope,_,_=enrollment(tenant,cases,case,clean_context,tab=2,monitoring_approved=True)
     other.connect_browser(other_lease.token,other_scope)
     other_capture=other.observe_browser(tenant.token,other_lease.token,dict(schema_version=1,operation='browser.observe',
         request_id=str(uuid4()),sequence=1,context=other_scope,

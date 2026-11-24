@@ -477,7 +477,11 @@ def discovery_journey(cdp,family,service,human,tls,root,env,console_origin,exten
             captured=navigation.list_browser_observations(human,enrolled['lease_id'])['observations']
             assert len(captured)==2 and all(row['state']=='captured' for row in captured)
             assert cdp.evaluate(session,'location.href')==console_origin+'/unfamiliar-audit?view=recent'
-            state=cdp.evaluate(popup,'chrome.runtime.sendMessage({operation:"state"}).then(x=>x.result)')
+            def reviewed_state():
+                state=cdp.evaluate(popup,'chrome.runtime.sendMessage({operation:"state"}).then(x=>x.result)')
+                sections=(state.get('tour') or {}).get('sections') or []
+                return state if sections and 'text_review' in sections[-1] else None
+            state=wait_for(reviewed_state,20)
             assert state['monitoring']['interface_title']=='Harbor Security Workspace'
             assert state['tour']['sections'][-1]['text_review']['candidate_count']==1
             assert state['monitoring']['candidate_count']==1

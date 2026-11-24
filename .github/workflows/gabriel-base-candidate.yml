@@ -1,7 +1,7 @@
 name: Gabriel minimal base acceptance
 on:
   pull_request:
-    paths: ['gabriel/identity/Dockerfile', 'compose.gabriel-identity.yml', 'tooling/scripts/gabriel_identity_check.sh', 'tooling/scripts/gabriel_image_scan.sh', '.github/workflows/gabriel-base-candidate.yml']
+    paths: ['gabriel/identity/Dockerfile', 'gabriel/security/**', 'compose.gabriel-identity.yml', 'tooling/scripts/gabriel_identity_check.sh', 'tooling/scripts/gabriel_image_scan.sh', '.github/workflows/gabriel-base-candidate.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -34,7 +34,7 @@ jobs:
           docker image inspect gabriel-minimal-base --format '{{.Id}}' > "$RUNNER_TEMP/gabriel-base/image-id.txt"
       - name: Scan the actual candidate with the unchanged high-severity threshold
         if: steps.build.outcome == 'success'
-        run: bash tooling/scripts/gabriel_image_scan.sh "$(cat "$RUNNER_TEMP/gabriel-base/image-id.txt")" "$RUNNER_TEMP/gabriel-base/security"
+        run: bash tooling/scripts/gabriel_image_scan.sh "$(cat "$RUNNER_TEMP/gabriel-base/image-id.txt")" "$RUNNER_TEMP/gabriel-base/security" gabriel/security/openssl-3.5.9.openvex.json
       - name: Full isolated component suite and actual PostgreSQL recovery on this base
         if: (success() || failure()) && steps.build.outcome == 'success'
         run: bash tooling/scripts/gabriel_identity_check.sh "$RUNNER_TEMP/gabriel-base/identity"
