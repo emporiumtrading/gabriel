@@ -463,7 +463,7 @@ class Workbench:
                 body+=self._form(path+'/reset','Reset all organization memory retrieval','<input type="hidden" name="epoch" value="'+str(history['current_epoch'])+'"><p>This removes all current reference retrieval for the organization; source evidence is retained.</p>')
             body+='<p>Showing up to 128 latest applicable records.'+(' Older records are omitted.' if history['truncated'] else '')+'</p>'
             return '200 OK',self._page('Memory review',body,principal),[]
-        coordinator=re.fullmatch('/cases/('+ID+')/coordinator(?:/(new|'+ID+')(?:/(next|run|stop))?)?',path)
+        coordinator=re.fullmatch('/cases/('+ID+')/coordinator(?:/(new|'+ID+')(?:/(next|run|stop|collaborate))?)?',path)
         if coordinator:
             case_id,run_id,operation=coordinator.groups()
             path='/cases/'+case_id+'/coordinator'
@@ -477,6 +477,25 @@ class Workbench:
             if run_id:
                 run=self.service.get_coordinator(self._token,run_id)
                 if run['case_id']!=case_id: raise AccessDenied('coordinator_case_mismatch')
+            if method=='GET' and operation=='collaborate':
+                if not run:
+                    raise AccessDenied('coordinator_run_required')
+                report=self.service.collaborate_coordinator(self._token,run_id)
+                body='<p class="notice">Cross-specialist detective synthesis. Each role contributed a bounded local review; disagreements, visibility gaps and benign alternatives remain visible. This receipt does not prove source truth, compromise or a zero-day, and it cannot authorize response.</p>'
+                body+='<p id="collaboration-status">'+e(report['status'])+' · '+e(report['completed_role_count'])+' of '+e(report['expected_role_count'])+' specialists combined</p>'
+                body+='<h2>Role contributions</h2>'+table(['Specialist','Observations','Hypotheses','Contradictions','Urgency'],[
+                    (e(row['role'].replace('_',' ')),e(row['observation_count']),e(row['hypothesis_count']),
+                     e(row['contradiction_count']),e(row['urgency'])) for row in report['roles']])
+                body+='<h2>Attention order</h2><p>'+e(', '.join(report['attention_order']) or 'No role reported urgent review or a visibility gap.')+'</p>'
+                body+='<h2>Disagreements</h2>'
+                body+=('<p>No cross-specialist disagreement was reported by the bounded result states.</p>' if not report['disagreements'] else
+                       ''.join('<section><h3>'+e(item['dimension'])+'</h3><p>'+e(item['interpretation'])+'</p><p>'+e(str(item['values']))+'</p></section>' for item in report['disagreements']))
+                body+='<h2>Handoff map</h2>'+table(['From','Next specialist lanes','Reason'],[
+                    (e(item['source'].replace('_',' ')),e(', '.join(item['targets']).replace('_',' ')),e(item['reason'])) for item in report['handoffs']])
+                body+='<h2>Limitations</h2>'+''.join('<p>'+e(item)+'</p>' for item in report['limitations'])
+                body+='<p>Source-set checksum '+e(report['source_digest'])+' · '+e(len(report['specialist_run_ids']))+' specialist receipts linked.</p>'
+                body+='<p><a href="'+path+'/'+run_id+'">Back to coordinated plan</a></p>'
+                return '200 OK',self._page('Cross-specialist detective synthesis',body,principal),[]
             if method=='POST':
                 expected={'csrf','sequence'} if operation=='next' else {'csrf'}
                 if not run or operation not in {'next','run','stop'} or set(fields)!=expected:
@@ -508,6 +527,8 @@ class Workbench:
                         body+=self._form(path+'/'+run_id+'/run','Run remaining specialist reviews','<p>Runs up to twelve local reviews. Access, Stop and evidence scope are checked between reviews.</p>')
                 if run['input_evidence_id']:
                     body+='<p>Typed facts artifact <a href="/cases/'+case_id+'/evidence/'+e(run['input_evidence_id'])+'">'+e(run['input_evidence_id'])+'</a></p>'
+                if run['input_evidence_id'] and run['status']=='local_plan_complete':
+                    body+='<p><a href="'+path+'/'+run_id+'/collaborate">View cross-specialist detective synthesis</a></p>'
                 for step in run['steps']:
                     name={'evidence_inventory':'Evidence record inventory','telemetry_health':'Telemetry coverage check'}.get(step['operation'],step['operation'].replace('_',' ').title())
                     state='Complete' if step['completed_at'] else 'Interrupted or in progress; safe to retry' if step['claimed_at'] else 'Waiting'
