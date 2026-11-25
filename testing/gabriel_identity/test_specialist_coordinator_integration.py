@@ -43,6 +43,22 @@ def test_all_twelve_complete_with_fixed_input_and_no_model_authority(tenant,case
     assert len(cases.list_specialist_runs(tenant.token,case['id'])['runs'])==12
 
 
+def test_cross_specialist_synthesis_links_all_twelve_roles(tenant,cases,case,typed,plan):
+    cases.complete_coordinator(tenant.token,plan['id'])
+    report=cases.collaborate_coordinator(tenant.token,plan['id'])
+    assert report['status']=='complete'
+    assert report['completed_role_count']==12 and report['expected_role_count']==12
+    assert report['missing_roles']==[]
+    assert len(report['specialist_run_ids'])==12
+    assert len(report['handoffs'])==12
+    assert report['source_digest']==plan['source_digest']
+    assert report['grants_authority'] is False
+    assert report['external_actions_authorized'] is False
+    assert report['decision_made'] is False
+    assert report['confidence']=='unqualified' and report['attack_status']=='unknown'
+    assert cases.collaborate_coordinator(tenant.token,plan['id'])==report
+
+
 def test_concurrent_drains_and_fresh_service_converge_without_duplicate_reviews(tenant,cases,case,plan):
     with ThreadPoolExecutor(max_workers=3) as pool:
         list(pool.map(lambda _:cases.complete_coordinator(tenant.token,plan['id']),range(3)))
