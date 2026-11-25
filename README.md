@@ -12,7 +12,7 @@ The interface uses Gabriel's own halo and winged-shield emblem, midnight-blue su
 
 [View six actual desktop and mobile screens](docs/assets/gabriel/screenshots/README.md). Captured with generated demo data; displayed features and limitations reflect the tested source.
 
-[Explore investigation tools, analyst actions and the Hermes workflow concepts](docs/assets/gabriel/actions/README.md). Includes five actual generated-data screens and three clearly labeled design previews.
+[Explore investigation tools, analyst actions and Gabriel's supervised workflow concepts](docs/assets/gabriel/actions/README.md). Includes five actual generated-data screens and three clearly labeled design previews.
 
 ## Start here
 
@@ -67,3 +67,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), [the operati
 ## License and provenance
 
 See [LICENSE](LICENSE) and [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md). Upstream copyright and third-party notices remain intact. Gabriel's defensive behavior and release status are documented independently of inherited components.
+
