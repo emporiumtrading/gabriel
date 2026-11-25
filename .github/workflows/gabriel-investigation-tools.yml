@@ -1,7 +1,7 @@
 name: Gabriel open-source investigation tools and skills
 on:
   pull_request:
-    paths: ['gabriel/identity/**', 'gabriel/toolbox/**', 'testing/gabriel_identity/test_investigation_tools*.py', 'testing/gabriel_identity/test_grounded_skills*.py', 'testing/gabriel_identity/test_source_events.py', 'testing/gabriel_identity/test_console_orientation.py', 'testing/gabriel_identity/test_catalog_*.py', 'testing/gabriel_identity/test_dfir_bounded_parsers.py', 'testing/gabriel_identity/test_skill_catalog.py', 'compose.gabriel*.yml', '.github/workflows/gabriel-investigation-tools.yml']
+    paths: ['gabriel/identity/**', 'gabriel/toolbox/**', 'testing/gabriel_identity/test_investigation_tools*.py', 'testing/gabriel_identity/test_grounded_skills*.py', 'testing/gabriel_identity/test_source_events.py', 'testing/gabriel_identity/test_console_orientation.py', 'testing/gabriel_identity/test_catalog_*.py', 'testing/gabriel_identity/test_dfir_bounded_parsers.py', 'testing/gabriel_identity/test_skill_catalog.py', 'tooling/scripts/gabriel_toolbus_prepare.py', 'compose.gabriel*.yml', '.github/workflows/gabriel-investigation-tools.yml']
 permissions:
   contents: read
 jobs:

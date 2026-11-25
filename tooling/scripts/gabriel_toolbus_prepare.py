@@ -21,10 +21,16 @@ def prepare(directory):
     directory.mkdir(mode=0o700)
     ca_key=directory/'ca.key';ca=directory/'ca.pem';key=directory/'server.key'
     request=directory/'server.csr';certificate=directory/'server.pem';extensions=directory/'extensions.cnf'
-    extensions.write_text('subjectAltName=DNS:hermes,DNS:investigation-tools,DNS:localhost,IP:127.0.0.1\n'
+    extensions.write_text('basicConstraints=critical,CA:FALSE\n'
+        'subjectKeyIdentifier=hash\nauthorityKeyIdentifier=keyid:always\n'
+        'subjectAltName=DNS:hermes,DNS:investigation-tools,DNS:localhost,IP:127.0.0.1\n'
         'extendedKeyUsage=serverAuth\nkeyUsage=critical,digitalSignature,keyEncipherment\n')
     run('openssl','req','-x509','-newkey','rsa:3072','-nodes','-days','31','-sha256',
-        '-subj','/CN=Gabriel private tool bus CA','-keyout',str(ca_key),'-out',str(ca))
+        '-subj','/CN=Gabriel private tool bus CA',
+        '-addext','basicConstraints=critical,CA:TRUE,pathlen:0',
+        '-addext','keyUsage=critical,keyCertSign,cRLSign',
+        '-addext','subjectKeyIdentifier=hash',
+        '-keyout',str(ca_key),'-out',str(ca))
     run('openssl','req','-new','-newkey','rsa:3072','-nodes','-sha256','-subj','/CN=Gabriel tool bus',
         '-keyout',str(key),'-out',str(request))
     run('openssl','x509','-req','-in',str(request),'-CA',str(ca),'-CAkey',str(ca_key),'-CAcreateserial',

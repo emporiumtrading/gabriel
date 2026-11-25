@@ -5,6 +5,7 @@ on:
       - 'gabriel/identity/**'
       - 'testing/gabriel_identity/**'
       - 'tooling/scripts/gabriel_candidate_export.py'
+      - 'tooling/scripts/gabriel_toolbus_prepare.py'
       - 'testing/gabriel_model_lab/**'
       - 'gabriel/identity/provider_probe.py'
       - 'gabriel/identity/model_input.py'

@@ -13,7 +13,9 @@ jobs:
         with:
           persist-credentials: false
       - name: Prepare retained evidence directories
-        run: mkdir -p "$RUNNER_TEMP/hermes-profile" "$RUNNER_TEMP/hermes-security"
+        run: |
+          mkdir -p "$RUNNER_TEMP/hermes-profile"
+          git rev-parse HEAD > "$RUNNER_TEMP/hermes-profile/source-sha.txt"
       - name: Record minimal Python base identity
         run: docker buildx imagetools inspect python:3.13.18-alpine3.24 --format '{{.Manifest.Digest}}'
       - name: Build pinned required supervisor image

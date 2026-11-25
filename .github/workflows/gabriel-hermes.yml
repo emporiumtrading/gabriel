@@ -1,7 +1,7 @@
 name: Gabriel required Hermes supervision
 on:
   pull_request:
-    paths: ['gabriel/identity/**', 'gabriel/hermes/**', 'testing/gabriel_identity/test_hermes*', 'compose.gabriel*.yml', '.github/workflows/gabriel-hermes.yml']
+    paths: ['gabriel/identity/**', 'gabriel/hermes/**', 'testing/gabriel_identity/test_hermes*', 'tooling/scripts/gabriel_toolbus_prepare.py', 'compose.gabriel*.yml', '.github/workflows/gabriel-hermes.yml']
 permissions:
   contents: read
 jobs:

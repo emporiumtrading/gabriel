@@ -1,7 +1,7 @@
 name: Gabriel minimal base acceptance
 on:
   pull_request:
-    paths: ['gabriel/identity/Dockerfile', 'gabriel/security/**', 'compose.gabriel-identity.yml', 'tooling/scripts/gabriel_identity_check.sh', 'tooling/scripts/gabriel_image_scan.sh', '.github/workflows/gabriel-base-candidate.yml']
+    paths: ['gabriel/identity/Dockerfile', 'gabriel/security/**', 'compose.gabriel-identity.yml', 'tooling/scripts/gabriel_identity_check.sh', 'tooling/scripts/gabriel_image_scan.sh', 'tooling/scripts/gabriel_toolbus_prepare.py', '.github/workflows/gabriel-base-candidate.yml']
   workflow_dispatch:
 permissions:
   contents: read

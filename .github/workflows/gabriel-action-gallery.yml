@@ -1,7 +1,7 @@
 name: Gabriel actual UI and action workflow gallery
 on:
   pull_request:
-    paths: ['testing/gabriel_gallery/**', '.github/workflows/gabriel-action-gallery.yml']
+    paths: ['testing/gabriel_gallery/**', 'tooling/scripts/gabriel_toolbus_prepare.py', '.github/workflows/gabriel-action-gallery.yml']
 permissions:
   contents: read
 jobs:
