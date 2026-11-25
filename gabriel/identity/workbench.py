@@ -119,6 +119,7 @@ class Workbench:
             'AI spending':'Review reservations, set allowances and keep costs within your control.',
             'Audit activity':'Trace recorded actions across your organization.',
             'Your AI keys':'Manage your organization’s private provider connections.',
+            'MCP connections':'Connect approved read-only security context sources with explicit specialist scope.',
             'Case provenance':'Follow the recorded links between your case, evidence and observations.',
             'Specialist assessments':'Review specialist findings alongside their evidence and limitations.',
             'Memory review':'Control what is proposed, reviewed and retained for later investigations.',
@@ -131,9 +132,10 @@ class Workbench:
             items=[('/cases','Cases','▦'),('/sources','Browser health','◎'),('/spending','AI spending','$')]
             if principal.role!='viewer': items.extend([('/cases/new','New case','+'),('/audit','Audit','≡')])
             if principal.role!='viewer': items.append(('/personal-providers','My AI key','◇'))
+            if principal.role!='viewer': items.append(('/mcp','MCP connections','⇄'))
             if principal.role in {'owner','admin'}: items.extend([('/providers','Organization AI keys','◇'),('/members','Team members','♙')])
             active={'Browser health and coverage':'/sources','AI spending':'/spending','New investigation':'/cases/new',
-                'Audit activity':'/audit','Your AI keys':'/providers','My AI key':'/personal-providers','Team members':'/members'}.get(title,'/cases')
+                'Audit activity':'/audit','Your AI keys':'/providers','My AI key':'/personal-providers','MCP connections':'/mcp','Team members':'/members'}.get(title,'/cases')
             navigation='<div><span class="nav-label">Workspace</span><nav aria-label="Main navigation">'+''.join(
                 '<a href="'+path+'"'+(' aria-current="page"' if path==active else '')+'><span class="nav-icon" aria-hidden="true">'+icon+'</span>'+label+'</a>'
                 for path,label,icon in items)+'</nav></div>'
@@ -199,6 +201,39 @@ class Workbench:
             body+=table(['Username','Role','Active'],[(e(row['username']),e(row['role']),e(row['active'])) for row in rows])
             body+=self._form('/members/create','Add team member','<label>Username<input name="username" required maxlength="64"></label><label>Initial password (at least 16 characters)<input name="password" type="password" autocomplete="new-password" required minlength="16" maxlength="1024"></label><label>Role<select name="role"><option value="analyst">Analyst</option><option value="viewer">Viewer</option></select></label>')
             return '200 OK',self._page('Team members',body,principal),[]
+        mcp_path=re.fullmatch('/mcp(?:/(register|refresh|revoke))?(?:/('+ID+'))?',path)
+        if mcp_path:
+            from gabriel.identity.mcp_gateway import McpGateway
+            if self._provider_vault is None: raise AccessDenied('provider_vault_not_configured')
+            operation,connection_id=mcp_path.groups()
+            if operation in {'register','refresh','revoke'} and principal.role not in {'owner','admin'}:
+                raise AccessDenied('operation_not_permitted')
+            gateway=McpGateway(self._provider_vault)
+            if method=='POST':
+                if operation=='register':
+                    expected={'csrf','name','endpoint','roles','bearer_token'}
+                    if set(fields)!=expected: raise AccessDenied('invalid_mcp_form')
+                    gateway.register(self._token,fields['name'],fields['endpoint'],fields['roles'],bearer_token=fields['bearer_token'] or None)
+                elif operation=='refresh' and connection_id:
+                    if set(fields)!={'csrf'}: raise AccessDenied('invalid_mcp_form')
+                    gateway.refresh(self._token,connection_id)
+                elif operation=='revoke' and connection_id:
+                    if set(fields)!={'csrf'}: raise AccessDenied('invalid_mcp_form')
+                    gateway.revoke(self._token,connection_id)
+                else: raise AccessDenied('invalid_mcp_route')
+                return '303 See Other',b'',[('Location','/mcp')]
+            if method!='GET' or operation or connection_id: raise AccessDenied('workbench_route_denied')
+            rows=gateway.list(self._token)
+            body='<p>Only HTTPS MCP endpoints with explicitly read-only tool annotations are admitted. Gabriel stores bearer credentials encrypted, keeps tool manifests bounded, strips sensitive fields from results, and never forwards browser cookies, auth headers or raw page contents through this gateway.</p>'
+            body+='<div class="notice">MCP tools are untrusted input. A connection is not usable until its manifest is refreshed and its tool is explicitly marked read-only. Write, destructive and action-oriented tools are rejected.</div>'
+            body+=table(['Connection','Status','Roles','Tools','Manifest','Last checked'],[(e(row['name'])+'<br><small>'+e(row['endpoint'])+'</small>',e(row['status']),e(', '.join(row['roles'])),e(row['tool_count']),e(row['tool_manifest_digest'] or '—'),e(row['checked_at'] or '—')) for row in rows]) if rows else '<div class="empty-state"><span class="empty-mark">⇄</span><h2>No MCP connections yet</h2><p>Start with a read-only, vendor-neutral source such as a SIEM, identity, cloud or ticketing context server.</p></div>'
+            if principal.role in {'owner','admin'}:
+                body+=self._form('/mcp/register','Register read-only MCP connection','<label>Name<input name="name" maxlength="64" pattern="[a-z][a-z0-9_.-]{2,63}" required></label><label>HTTPS endpoint<input name="endpoint" type="url" placeholder="https://host.example/mcp" maxlength="512" required></label><label>Specialist roles (comma-separated)<input name="roles" placeholder="alert_triage,threat_hunting" maxlength="512" required></label><label>Bearer token (optional; encrypted at rest)<input name="bearer_token" type="password" autocomplete="new-password" maxlength="8192"></label>')
+                for row in rows:
+                    if not row['revoked']:
+                        body+=self._form('/mcp/refresh/'+e(row['id']),'Refresh '+e(row['name'])+' manifest')
+                        body+=self._form('/mcp/revoke/'+e(row['id']),'Revoke '+e(row['name']))
+            return '200 OK',self._page('MCP connections',body,principal),[]
         if path in {'/personal-providers','/personal-providers/save','/personal-providers/revoke'}:
             if principal.role not in {'owner','admin','analyst'}:raise AccessDenied('personal_provider_writer_required')
             if self._provider_vault is None:raise AccessDenied('provider_vault_not_configured')
@@ -787,4 +822,3 @@ def serve_workbench(configuration,certificate,key,bind='127.0.0.1:8444'):
                 self.cfg.set(name,value)
         def load(self): return load_workbench(configuration)
     Application().run()
-

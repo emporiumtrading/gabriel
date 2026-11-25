@@ -274,6 +274,7 @@ def remove_v31(conn):
     # v32 and v33 were added after this historical fixture was written.  Roll
     # those descendants back first so the migration table remains a contiguous
     # prefix while the test exercises a v31 upgrade.
+    remove_v34(conn)
     remove_v33(conn)
     remove_v32(conn)
     if conn.execute('SELECT 1 FROM gabriel_identity.migrations WHERE version=31').fetchone():
@@ -318,8 +319,15 @@ def remove_v32(conn):
 
 
 def remove_v33(conn):
+    remove_v34(conn)
     if not conn.execute('SELECT 1 FROM gabriel_identity.migrations WHERE version=33').fetchone():
         return
     conn.execute('ALTER TABLE gabriel_identity.specialist_agent_jobs DROP COLUMN provider')
     conn.execute('ALTER TABLE gabriel_identity.hermes_runs DROP COLUMN provider, DROP COLUMN specialist_provider')
     conn.execute('DELETE FROM gabriel_identity.migrations WHERE version=33')
+
+
+def remove_v34(conn):
+    if conn.execute('SELECT 1 FROM gabriel_identity.migrations WHERE version=34').fetchone():
+        conn.execute('DROP TABLE gabriel_identity.mcp_connection_secrets,gabriel_identity.mcp_connections')
+        conn.execute('DELETE FROM gabriel_identity.migrations WHERE version=34')
