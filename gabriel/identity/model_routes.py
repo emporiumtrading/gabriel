@@ -3,7 +3,7 @@ from decimal import Decimal, InvalidOperation
 
 from gabriel.identity.model_evaluation import digest
 
-VERSION='openrouter-candidate-routes-v1'
+VERSION='provider-candidate-routes-v2'
 ROUTES={
     'openai/gpt-4.1-mini':('Azure','azure','max_completion_tokens',None),
     'qwen/qwen3.5-35b-a3b':('DeepInfra','deepinfra/fp8','max_tokens','disabled'),
@@ -17,6 +17,15 @@ ROUTES={
 # Only a reviewed release can populate exact configuration digests. An account
 # balance, cheap route, registry entry or operator quote cannot supply admission.
 PRODUCTION_CONFIGURATIONS=frozenset()
+
+# These are the bounded model identifiers Gabriel may send directly to
+# DeepInfra. The remaining catalog entries are OpenRouter-routed comparison
+# candidates and must not silently switch providers.
+DEEPINFRA_MODELS=frozenset({'openai/gpt-oss-120b','qwen/qwen3.5-35b-a3b'})
+DEEPINFRA_IDS={
+    'openai/gpt-oss-120b':'openai/gpt-oss-120b',
+    'qwen/qwen3.5-35b-a3b':'Qwen/Qwen3.5-35B-A3B',
+}
 
 
 class RouteError(ValueError):
@@ -58,13 +67,35 @@ def eligible(catalog,model):
                 quality_qualified=False,production_admission=False)
 
 
-def parameters(model):
+def upstream_model(model, provider='openrouter'):
     if model not in ROUTES: raise RouteError('unknown_candidate_route')
+    if provider=='openrouter': return model
+    if provider=='deepinfra' and model in DEEPINFRA_IDS: return DEEPINFRA_IDS[model]
+    raise RouteError('provider_model_not_admitted')
+
+
+def parameters(model, provider='openrouter'):
+    if model not in ROUTES: raise RouteError('unknown_candidate_route')
+    upstream_model(model,provider)
     _,tag,token_parameter,reasoning=ROUTES[model]
     result=dict(temperature=0,stream=False,response_format={'type':'json_object'},
                 provider=dict(only=[tag],allow_fallbacks=False,require_parameters=True,
                               data_collection='deny',zdr=True,
-                              max_price=dict(prompt=0.5,completion=3,request=0)))
+                              max_price=dict(prompt=0.5,completion=3,request=0)) if provider=='openrouter' else None)
+    if provider=='deepinfra': result.pop('provider')
     result[token_parameter]=768
-    if reasoning: result['reasoning']={'enabled':False} if reasoning=='disabled' else {'effort':'low'}
+    if reasoning and provider=='openrouter': result['reasoning']={'enabled':False} if reasoning=='disabled' else {'effort':'low'}
+    elif reasoning=='low' and provider=='deepinfra': result['reasoning_effort']='low'
     return result
+
+
+def deepinfra_eligible(catalog,model):
+    """Require the exact direct model id in DeepInfra's current catalog."""
+    expected=upstream_model(model,'deepinfra')
+    data=catalog.get('data') if isinstance(catalog,dict) else None
+    if not isinstance(data,list) or len(data)>10000:
+        raise RouteError('deepinfra_model_catalog_invalid')
+    if not any(isinstance(row,dict) and row.get('id')==expected for row in data):
+        raise RouteError('deepinfra_model_unavailable')
+    return dict(model=model,provider='DeepInfra',model_id=expected,
+                catalog_classification='deepinfra_reported_model_catalog',production_admission=False)

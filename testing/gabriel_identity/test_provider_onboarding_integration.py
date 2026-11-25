@@ -93,6 +93,31 @@ def test_nvidia_credential_is_customer_owned_but_entitlement_and_dispatch_remain
     with pytest.raises(AccessDenied): service.resolve(tenant.token,'nvidia')
 
 
+def test_deepinfra_key_is_authenticated_encrypted_and_dispatch_ready_without_balance_claim(tenant,monkeypatch):
+    vault=ProviderVault(tenant.db.app,fresh_ring())
+    calls=[]
+    class Client:
+        def __init__(self,credential):
+            assert credential.reveal().startswith('generated-customer-')
+        def request(self,method,path,payload=None):
+            calls.append((method,path))
+            assert method=='GET' and payload is None and path=='/v1/me/gpu_limit'
+            return dict(limits={},pending_requests={})
+    monkeypatch.setattr(provider_onboarding,'DeepInfraTransport',Client)
+    service=CustomerProviders(vault)
+    value=secret()
+    result=service.configure(tenant.token,'deepinfra',value)
+    assert result['status']=='inference_verified' and not result['external_billing_verified']
+    assert calls==[('GET','/v1/me/gpu_limit')]
+    credential,binding=service.resolve(tenant.token,'deepinfra')
+    assert credential.reveal()==value and binding[1]==1
+    status=[row for row in service.status(tenant.token) if row['provider']=='deepinfra'][0]
+    assert status['status']=='inference_verified' and not status['balance_is_historical']
+    with owner_connection(tenant.db) as conn:
+        row=conn.execute("SELECT * FROM gabriel_identity.provider_secrets WHERE organization_id=%s AND provider='deepinfra'",(tenant.org,)).fetchone()
+    assert value.encode() not in bytes(row['ciphertext'])
+
+
 def test_other_tenant_and_environment_cannot_supply_missing_key(tenant,customer,monkeypatch):
     service,calls,_=customer
     service.configure(tenant.token,'openrouter',secret())

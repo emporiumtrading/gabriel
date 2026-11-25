@@ -26,7 +26,7 @@ COPY gabriel/identity/specialist_qualification.py /app/gabriel/identity/
 COPY gabriel/identity/personal_providers.py gabriel/identity/specialist_agents.py gabriel/identity/schema_v29.sql /app/gabriel/identity/
 COPY gabriel/identity/schema_v27.sql gabriel/identity/schema_v28.sql gabriel/identity/browser_ai.py /app/gabriel/identity/
 COPY gabriel/hermes/runtime.py gabriel/hermes/server.py gabriel/hermes/prepare_runtime.py gabriel/hermes/Dockerfile gabriel/hermes/requirements.lock /app/gabriel/hermes/
-COPY gabriel/identity/hermes_qualification.py gabriel/identity/hermes_bridge.py gabriel/identity/hermes_supervisor.py gabriel/identity/schema_v30.sql gabriel/identity/schema_v31.sql /app/gabriel/identity/
+COPY gabriel/identity/hermes_qualification.py gabriel/identity/hermes_bridge.py gabriel/identity/hermes_supervisor.py gabriel/identity/mcp_gateway.py gabriel/identity/schema_v30.sql gabriel/identity/schema_v31.sql gabriel/identity/schema_v32.sql gabriel/identity/schema_v33.sql gabriel/identity/schema_v34.sql /app/gabriel/identity/
 COPY gabriel/identity/installation.py /app/gabriel/identity/
 RUN mkdir -p /var/lib/gabriel-workbench && chown 10001:10001 /var/lib/gabriel-workbench && chmod 700 /var/lib/gabriel-workbench
 COPY gabriel/identity/workbench.py gabriel/identity/workbench_cli.py /app/gabriel/identity/
@@ -57,12 +57,11 @@ ENTRYPOINT ["python", "-m", "gabriel.identity.cli"]
 
 FROM runtime AS test
 USER 0:0
-RUN apk add --no-cache openssl \
-    && pip install --no-cache-dir pytest==8.3.5 pytest-cov==6.0.0 pytest-asyncio==0.25.3
+RUN pip install --no-cache-dir pytest==8.3.5 pytest-cov==6.0.0 pytest-asyncio==0.25.3
 ENV PYTHONPATH=/app:/repo
 WORKDIR /repo
 COPY conftest.py pytest.ini /repo/
-COPY tooling/scripts/pytest_isolated.py tooling/scripts/gabriel_install.py tooling/scripts/gabriel_identity_prepare.py tooling/scripts/gabriel_provider_keys.py tooling/scripts/gabriel_evidence_keys.py tooling/scripts/gabriel_toolbus_prepare.py /repo/tooling/scripts/
+COPY tooling/scripts/pytest_isolated.py tooling/scripts/gabriel_identity_prepare.py tooling/scripts/gabriel_provider_keys.py tooling/scripts/gabriel_evidence_keys.py /repo/tooling/scripts/
 COPY testing/gabriel_identity/ /repo/testing/gabriel_identity/
 COPY testing/gabriel_model_lab/ /repo/testing/gabriel_model_lab/
 COPY gabriel/browser_extension/ /repo/gabriel/browser_extension/

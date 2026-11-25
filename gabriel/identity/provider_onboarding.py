@@ -3,11 +3,11 @@ from decimal import Decimal, InvalidOperation
 from uuid import uuid4
 
 from gabriel.identity.model_protocol import ProbeError
-from gabriel.identity.model_transport import OpenRouterTransport
+from gabriel.identity.model_transport import DeepInfraTransport,OpenRouterTransport
 from gabriel.identity.service import AccessDenied, InvalidIdentityInput, _audit, connection
 from gabriel.identity.vault import ProviderCredential, ProviderVault, _secret
 
-PROVIDERS = {'openrouter', 'nvidia'}
+PROVIDERS = {'openrouter', 'deepinfra', 'nvidia'}
 MINIMUM_MICROUSD = 18000000
 
 
@@ -50,13 +50,21 @@ def dispatch_credit(credits_reply, required_microusd):
         raise ProbeError('customer_provider_credit_unavailable')
 
 
-def require_checked(conn, principal, provider, *, expected=None):
+def require_checked(conn, principal, provider=None, *, expected=None):
+    if provider is None:
+        selected=conn.execute('''SELECT provider FROM gabriel_identity.provider_secrets s
+            WHERE s.organization_id=%s AND s.provider IN ('openrouter','deepinfra') AND s.revoked_at IS NULL
+            AND EXISTS (SELECT 1 FROM gabriel_identity.provider_onboarding_checks c
+              WHERE (c.organization_id,c.secret_id,c.secret_revision)=(s.organization_id,s.id,s.revision)
+              AND c.provider=s.provider AND c.status IN ('funding_verified','inference_verified'))
+            ORDER BY CASE s.provider WHEN 'openrouter' THEN 0 ELSE 1 END LIMIT 1''',(principal.organization_id,)).fetchone()
+        provider=selected['provider'] if selected else None
     row = conn.execute('''SELECT s.id,s.revision FROM gabriel_identity.provider_secrets s
         WHERE s.organization_id=%s AND s.provider=%s AND s.revoked_at IS NULL
         AND EXISTS (SELECT 1 FROM gabriel_identity.provider_onboarding_checks c
           WHERE (c.organization_id,c.secret_id,c.secret_revision)=(s.organization_id,s.id,s.revision)
-          AND c.provider=s.provider AND c.status='funding_verified')''', (principal.organization_id, provider)).fetchone()
-    if not row or provider != 'openrouter' or (expected is not None and (row['id'], row['revision']) != expected):
+          AND c.provider=s.provider AND c.status IN ('funding_verified','inference_verified'))''', (principal.organization_id, provider)).fetchone()
+    if not row or provider not in {'openrouter','deepinfra'} or (expected is not None and (row['id'], row['revision']) != expected):
         raise AccessDenied('customer_provider_onboarding_required')
     return row
 
@@ -80,6 +88,12 @@ class CustomerProviders:
             client = OpenRouterTransport(ProviderCredential(value))
             details = funding(client.request('GET', '/api/v1/key'), client.request('GET', '/api/v1/credits'))
             status = 'funding_verified'
+        elif provider == 'deepinfra':
+            client = DeepInfraTransport(ProviderCredential(value))
+            metadata = client.request('GET', '/v1/me/gpu_limit')
+            if not isinstance(metadata, dict) or not isinstance(metadata.get('limits'), dict):
+                raise ProbeError('deepinfra_account_metadata_missing')
+            status = 'inference_verified'
         # NVIDIA account/catalog visibility does not establish entitlement,
         # production terms or a dollar balance. Store privately, leave disabled.
         stored = self.vault.put(token, provider, value)
@@ -98,6 +112,7 @@ class CustomerProviders:
             _audit(conn, 'provider.onboarding_recorded', p, current['id'])
         return dict(provider=provider, revision=stored['revision'], status=status,
                     minimum_setup_microusd=MINIMUM_MICROUSD if provider == 'openrouter' else None,
+                    external_billing_verified=provider == 'openrouter',
                     model_enabled=False, inference_performed=False)
 
     def status(self, token):
@@ -109,7 +124,7 @@ class CustomerProviders:
                 LEFT JOIN LATERAL (SELECT * FROM gabriel_identity.provider_onboarding_checks c
                     WHERE (c.organization_id,c.secret_id,c.secret_revision)=(s.organization_id,s.id,s.revision)
                     ORDER BY c.checked_at DESC,c.id DESC LIMIT 1) c ON true
-                WHERE s.organization_id=%s AND s.provider IN ('openrouter','nvidia') ORDER BY s.provider''',
+                WHERE s.organization_id=%s AND s.provider IN ('openrouter','deepinfra','nvidia') ORDER BY s.provider''',
                 (p.organization_id,)).fetchall()
             _audit(conn, 'provider.onboarding_read', p)
             return [dict(provider=r['provider'], revision=r['revision'],
@@ -117,7 +132,20 @@ class CustomerProviders:
                          checked_at=r['checked_at'].isoformat() if r['checked_at'] else None,
                          account_available_microusd=r['account_available_microusd'],
                          key_available_microusd=r['key_available_microusd'],
-                         balance_is_historical=True, model_enabled=False) for r in rows]
+                         balance_is_historical=r['provider']=='openrouter',
+                         external_billing_verified=r['provider']=='openrouter', model_enabled=False) for r in rows]
+
+    def preferred(self, token):
+        with connection(self.vault._dsn) as conn:
+            p=self.vault._admin(conn,token)
+            row=conn.execute('''SELECT s.provider FROM gabriel_identity.provider_secrets s
+                WHERE s.organization_id=%s AND s.provider IN ('openrouter','deepinfra') AND s.revoked_at IS NULL
+                AND EXISTS (SELECT 1 FROM gabriel_identity.provider_onboarding_checks c
+                  WHERE (c.organization_id,c.secret_id,c.secret_revision)=(s.organization_id,s.id,s.revision)
+                  AND c.provider=s.provider AND c.status IN ('funding_verified','inference_verified'))
+                ORDER BY CASE s.provider WHEN 'openrouter' THEN 0 ELSE 1 END LIMIT 1''',(p.organization_id,)).fetchone()
+            if not row:raise AccessDenied('customer_provider_onboarding_required')
+            return row['provider']
 
     def resolve(self, token, provider):
         with connection(self.vault._dsn) as conn:

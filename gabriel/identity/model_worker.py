@@ -13,7 +13,7 @@ from gabriel.identity.evidence_store import EvidenceContent,canonical
 from gabriel.identity.model_budget import ModelBudgetService,investigation,reservation
 from gabriel.identity.model_evaluation import digest,validate_run
 from gabriel.identity.model_input import prepare
-from gabriel.identity.model_transport import OpenRouterTransport
+from gabriel.identity.model_transport import DeepInfraTransport,OpenRouterTransport
 from gabriel.identity.model_protocol import PROMPT_V2 as PROMPT,ProbeError,budget_check,decode,money
 from gabriel.identity.service import AccessDenied,_audit,connection,identifier
 from gabriel.identity.vault import ProviderVault
@@ -22,12 +22,13 @@ from gabriel.identity.provider_onboarding import CustomerProviders,require_check
 QUESTION='Assess only the supplied partial typed observations. Disclose missing context and source uncertainty.'
 
 
-def configuration(model):
-    return dict(version='restricted-model-worker-v3',model=model,
-                route_registry_version=model_routes.VERSION,expected_provider=model_routes.ROUTES[model][0],
+def configuration(model,provider='openrouter'):
+    model_routes.upstream_model(model,provider)
+    return dict(version='restricted-model-worker-v3',model=model,provider=provider,
+                route_registry_version=model_routes.VERSION,expected_provider='DeepInfra' if provider=='deepinfra' else model_routes.ROUTES[model][0],
                 prompt_digest=sha256(PROMPT.encode()).hexdigest(),
                 projection_version='typed-telemetry-minimization-v1',
-                parameters=model_routes.parameters(model))
+                parameters=model_routes.parameters(model,provider))
 
 
 class ModelWorker:
@@ -47,17 +48,20 @@ class ModelWorker:
         if p.role not in {'owner','admin'}:raise AccessDenied('operation_not_permitted')
         return p
 
-    def _credential(self,token):
-        return CustomerProviders(self.vault).resolve(token,'openrouter')
+    def _provider(self,token):
+        return CustomerProviders(self.vault).preferred(token)
 
-    def _credential_guard(self,conn,p,binding):
-        require_checked(conn,p,'openrouter',expected=binding)
+    def _credential(self,token,provider=None):
+        return CustomerProviders(self.vault).resolve(token,provider or self._provider(token))
+
+    def _credential_guard(self,conn,p,binding,provider='openrouter'):
+        require_checked(conn,p,provider,expected=binding)
 
     def _validate_actions(self,decision):
         if decision['requested_actions']:raise ProbeError('external_action_requested')
 
-    def _quote(self,token,model,config):
-        return self.budget.quote(token,'openrouter',model,digest(config),500000,3000000)
+    def _quote(self,token,model,config,provider='openrouter'):
+        return self.budget.quote(token,provider,model,digest(config),500000,3000000)
 
     def _post(self,client,body,guard):
         return client.request('POST','/api/v1/chat/completions',body)
@@ -65,14 +69,16 @@ class ModelWorker:
     def _budget_request(self,request_id):
         return request_id
 
-    def _transport(self,credential):
+    def _transport(self,credential,provider='openrouter'):
+        if provider=='deepinfra':return DeepInfraTransport(credential)
+        if provider!='openrouter':raise AccessDenied('model_worker_provider_denied')
         return OpenRouterTransport(credential)
 
-    def _configuration(self,model):
-        return configuration(model)
+    def _configuration(self,model,provider='openrouter'):
+        return configuration(model,provider)
 
-    def _admission(self,model):
-        config=self._configuration(model)
+    def _admission(self,model,provider='openrouter'):
+        config=self._configuration(model,provider)
         if digest(config) not in model_routes.PRODUCTION_CONFIGURATIONS:
             raise AccessDenied('model_configuration_not_production_admitted')
         return config
@@ -107,8 +113,9 @@ class ModelWorker:
             self.cases._custody(conn,p,source,'accessed')
         _audit(conn,'model_worker.sources_verified',p,evidence_id)
 
-    def _input(self,token,run_id,evidence_id,model):
-        config=self._admission(model)
+    def _input(self,token,run_id,evidence_id,model,provider=None):
+        provider=provider or self._provider(token)
+        config=self._admission(model,provider)
         evidence_id=identifier(evidence_id)
         with connection(self.cases._dsn) as conn:
             p=self._principal(conn,token)
@@ -127,21 +134,22 @@ class ModelWorker:
                 if expected.get(ref['evidence_id'])!=ref['evidence_digest']:
                     raise AccessDenied('normalized_source_binding_mismatch')
             self._verify_sources(conn,p,evidence_id,prepared)
-            body=dict(model=model,messages=[dict(role='system',content=PROMPT),
+            body=dict(model=model_routes.upstream_model(model,provider),messages=[dict(role='system',content=PROMPT),
                       dict(role='user',content=canonical(dict(question=QUESTION,observations=prepared['packet'])).decode())],**config['parameters'])
             if len(canonical(body))>7000: raise AccessDenied('model_input_requires_narrower_scope')
             binding=digest([str(run['id']),str(evidence_id),expected[str(evidence_id)],body])
             return config,run,prepared,body,binding
 
-    def reserve(self,token,run_id,evidence_id,request_id,model):
-        config,run,_,_,binding=self._input(token,run_id,evidence_id,model)
+    def reserve(self,token,run_id,evidence_id,request_id,model,provider=None):
+        provider=provider or self._provider(token)
+        config,run,_,_,binding=self._input(token,run_id,evidence_id,model,provider)
         job=self.budget.begin(token,run['case_id'],self._budget_request(request_id))
         with connection(self.cases._dsn) as conn:
             p=self._principal(conn,token)
             old=conn.execute('''SELECT quote_id FROM gabriel_identity.model_reservations
                 WHERE organization_id=%s AND investigation_id=%s AND request_id=%s''',
                 (p.organization_id,job['id'],identifier(request_id))).fetchone()
-        quote_id=old['quote_id'] if old else self._quote(token,model,config)['id']
+        quote_id=old['quote_id'] if old else self._quote(token,model,config,provider)['id']
         row=self.budget.reserve(token,job['id'],request_id,quote_id,binding,max_input_tokens=8000,max_output_tokens=768)
         return dict(reservation_id=str(row['id']),investigation_id=str(job['id']),reserved_microusd=row['reserved_microusd'],
                     production_admission=False,dispatch_performed=False)
@@ -153,21 +161,28 @@ class ModelWorker:
             if held['claim_id']: raise AccessDenied('model_worker_already_claimed_no_resend')
             quote=conn.execute('''SELECT * FROM gabriel_identity.model_price_quotes WHERE organization_id=%s AND id=%s''',
                                (p.organization_id,held['quote_id'])).fetchone()
-            if quote['provider']!='openrouter': raise AccessDenied('model_worker_provider_denied')
-        config,run,prepared,body,binding=self._input(token,run_id,evidence_id,quote['model'])
+            if quote['provider'] not in {'openrouter','deepinfra'}: raise AccessDenied('model_worker_provider_denied')
+        provider=quote['provider']
+        config,run,prepared,body,binding=self._input(token,run_id,evidence_id,quote['model'],provider)
         if (held['input_digest']!=binding or quote['configuration_digest']!=digest(config)
                 or held['max_input_tokens']!=8000 or held['max_output_tokens']!=768
                 or held['reserved_microusd']!=6304
                 or quote['input_microusd_per_million']!=500000
                 or quote['output_microusd_per_million']!=3000000):
             raise AccessDenied('model_worker_reservation_binding_mismatch')
-        credential,credential_binding=self._credential(token)
-        client=self._transport(credential)
-        model_routes.eligible(client.request('GET','/api/v1/endpoints/zdr'),quote['model'])
-        budget_check(client.request('GET','/api/v1/key').get('data'))
-        dispatch_credit(client.request('GET','/api/v1/credits'),held['reserved_microusd'])
+        credential,credential_binding=self._credential(token,provider)
+        client=self._transport(credential,provider)
+        if provider=='openrouter':
+            model_routes.eligible(client.request('GET','/api/v1/endpoints/zdr'),quote['model'])
+            budget_check(client.request('GET','/api/v1/key').get('data'))
+            dispatch_credit(client.request('GET','/api/v1/credits'),held['reserved_microusd'])
+        else:
+            model_routes.deepinfra_eligible(client.request('GET','/v1/openai/models'),quote['model'])
+            account=client.request('GET','/v1/me/gpu_limit')
+            if not isinstance(account,dict) or not isinstance(account.get('limits'),dict):
+                raise ProbeError('deepinfra_account_metadata_missing')
         def guard(conn,p):
-            self._credential_guard(conn,p,credential_binding)
+            self._credential_guard(conn,p,credential_binding,provider)
             job=investigation(conn,p,held['investigation_id'],active=True)
             self._scope(conn,p,run_id,job['case_id'])
             self._verify_sources(conn,p,identifier(evidence_id),prepared)
@@ -176,12 +191,13 @@ class ModelWorker:
         started=time.monotonic()
         reply=self._post(client,body,guard)
         elapsed=int((time.monotonic()-started)*1000)
-        if not isinstance(reply,dict) or reply.get('model')!=quote['model'] or reply.get('provider')!=model_routes.ROUTES[quote['model']][0]:
+        expected_model=model_routes.upstream_model(quote['model'],provider)
+        if not isinstance(reply,dict) or reply.get('model')!=expected_model or (provider=='openrouter' and reply.get('provider')!=model_routes.ROUTES[quote['model']][0]):
             raise ProbeError('unexpected_model_or_provider')
         usage=reply.get('usage',{})
         if (type(usage.get('prompt_tokens')) is not int or not 0<=usage['prompt_tokens']<=8000
                 or type(usage.get('completion_tokens')) is not int or not 0<=usage['completion_tokens']<=768
-                or money(usage.get('cost'))*1000000>held['reserved_microusd']):
+                or money(usage.get('cost',usage.get('estimated_cost')))*1000000>held['reserved_microusd']):
             raise ProbeError('worker_usage_or_cost_unresolved')
         choices=reply.get('choices')
         if not isinstance(choices,list) or len(choices)!=1 or choices[0].get('finish_reason')!='stop':
@@ -192,7 +208,7 @@ class ModelWorker:
         packet=dict(case_id='typed-assessment',input_sha256=binding,
                     observations=[dict(id=ref) for ref in prepared['local_manifest']['lineage']])
         result=dict(case_id=packet['case_id'],input_sha256=binding,configuration_sha256=digest(config),origin='live_provider',
-                    generation_id=reply.get('id'),latency_ms=elapsed,cost_usd=float(money(usage['cost'])),
+                    generation_id=reply.get('id'),latency_ms=elapsed,cost_usd=float(money(usage.get('cost',usage.get('estimated_cost')))),
                     input_tokens=usage['prompt_tokens'],output_tokens=usage['completion_tokens'],decision=decision)
         validate_run(result,packet)
         self._validate_actions(decision)

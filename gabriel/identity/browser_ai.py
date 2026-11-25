@@ -21,15 +21,15 @@ reports. Explain what additional evidence an analyst needs; no actions are allow
 '''
 
 
-def configuration(model):
-    value=worker_configuration(model)
+def configuration(model,provider='openrouter'):
+    value=worker_configuration(model,provider)
     return dict(value,version=VERSION,prompt_digest=sha256(PROMPT.encode()).hexdigest(),projection_version=VERSION,orchestration_version=coordinator.BROWSER_PLAN)
 
 
-def require_model(model):
+def require_model(model,provider='openrouter'):
     if type(model) is not str or model not in model_routes.ROUTES:
         raise AccessDenied('browser_ai_model_not_supported')
-    value=configuration(model)
+    value=configuration(model,provider)
     if digest(value) not in model_routes.PRODUCTION_CONFIGURATIONS:
         raise AccessDenied('browser_ai_configuration_not_production_admitted')
     return value
@@ -56,8 +56,8 @@ class BrowserModelWorker(ModelWorker):
         super().__init__(cases,vault)
         self._human_token,self._peer,self._context,self._observation_id=human,peer,dict(context),identifier(observation_id)
 
-    def _configuration(self,model):
-        return configuration(model)
+    def _configuration(self,model,provider='openrouter'):
+        return configuration(model,provider)
 
     def _bound(self,conn):
         p,lease,_=self.cases._observer(conn,self._human_token,self._peer,self._context)
@@ -72,9 +72,10 @@ class BrowserModelWorker(ModelWorker):
         if current!=p:raise AccessDenied('browser_ai_original_operator_required')
         return super()._scope(conn,p,run_id,case_id or lease['case_id'],_exclude_ingestion=_exclude_ingestion)
 
-    def _input(self,token,run_id,evidence_id,model):
+    def _input(self,token,run_id,evidence_id,model,provider=None):
         if token!=self._human_token:raise AccessDenied('browser_ai_original_operator_required')
-        config=self._admission(model)
+        provider=provider or self._provider(token)
+        config=self._admission(model,provider)
         with connection(self.cases._dsn) as conn:
             p,lease,observation=self._bound(conn)
             run,selected=self._scope(conn,p,run_id,lease['case_id'])
@@ -90,7 +91,7 @@ class BrowserModelWorker(ModelWorker):
             if raw!=canonical(dict(version=VERSION,prepared=prepared)) or row['parent_id']!=artifact['id']:
                 raise AccessDenied('browser_ai_normalization_binding_mismatch')
             self._verify_sources(conn,p,identifier(evidence_id),prepared)
-            body=dict(model=model,messages=[dict(role='system',content=PROMPT),
+            body=dict(model=model_routes.upstream_model(model,provider),messages=[dict(role='system',content=PROMPT),
                 dict(role='user',content=canonical(prepared['packet']).decode())],**config['parameters'])
             if len(canonical(body))>7000:raise AccessDenied('browser_ai_wire_limit')
             binding=digest([str(run['id']),str(row['id']),row['digest'],body])
@@ -145,7 +146,7 @@ def process(service,vault,human,peer,context,observation_id,model):
     if old and old['claim_id']:
         answer=worker.get_answer(human,old['id']);account_completed(worker,human,old['id'])
         return result(answer)
-    require_model(model)
+    require_model(model,worker._provider(human))
     if not prepared['packet']['signals']:
         return dict(state='abstained_no_supported_signals',model_used=False,quality_qualified=False,incident_confirmed=False)
     holder=service.acquire(human,case_id,uuid5(observation_id,VERSION),canonical(dict(version=VERSION,prepared=prepared)).decode(),

@@ -1,6 +1,6 @@
 # Confidential model input: typed local projection
 
-Scope: partial GAB-033/044/045 and C07. This increment is a pure, local transformation library. It is not connected to browser intake, an authenticated dispatcher, a specialist engine or a provider. It does not authorize model activation or production release. Verification remains pending until matching-image tests execute.
+Scope: partial GAB-033/044/045 and C07. The typed projection is now used by the bounded model worker, browser AI path, Hermes supervisor and specialist engine. It still does not authorize model activation or production release: exact provider/model configurations remain blocked until a reviewed admission digest and matching-image tests exist.
 
 ## Acceptance and rollback
 
@@ -18,7 +18,7 @@ The local manifest holds original identities, source lineage, source/wire digest
 
 Rows with identical projected typed facts share an event and retain every opaque observation alias. Counts are not added. Distinct times, outcomes, actors or counts remain distinct. Multiple references do not establish independent corroboration. Input order does not change the wire projection. Source order is still bound separately in the private manifest.
 
-The default wire cap is 12,000 UTF-8 bytes. Over-limit input is refused, never silently cropped or partially returned. This cap is not a tokenizer certification or a guaranteed token saving: a small record may grow after pseudonymization. Before network dispatch a provider-specific token/cost check and durable reservation are still required. Compression quality and useful context retention are not established by software tests. Unstructured context is explicitly excluded rather than falsely described as safely redacted.
+The projection library's default wire cap is 12,000 UTF-8 bytes; the authenticated model paths use a stricter 4,096-byte packet cap and 7,000-byte canonical provider-request cap. Over-limit input is refused, never silently cropped or partially returned. These caps are not tokenizer certification or a guaranteed token saving: a small record may grow after pseudonymization. Before network dispatch a provider-specific token/cost check and durable reservation are still required. Compression quality and useful context retention are not established by software tests. Unstructured context is explicitly excluded rather than falsely described as safely redacted.
 
 No model, network call, prompt authority, content decryption, source authenticity claim or action permission is supplied by this library. Its packet explicitly labels partial scope, unverified sources and missing context/visibility. The caller must recheck consent, tenant/case/evidence authority, retention and current provider policy immediately before any future dispatch.
 

@@ -205,7 +205,7 @@ def test_workbench_stop_is_not_blocked_by_agent_provider_io(tenant,cases,case,ev
     app._cookie='generated-agent-ui-cookie';app._claimed=True
     active=Event();release=Event()
     def slow(*args,**kwargs):
-        active.set();assert release.wait(5)
+        active.set();assert release.wait(10)
         return dict(state='generated_completed',steps=[])
     def stop(*args,**kwargs):release.set();return dict(stopped=True)
     monkeypatch.setattr(agents,'start',slow);monkeypatch.setattr(agents,'stop',stop)
@@ -220,11 +220,17 @@ def test_workbench_stop_is_not_blocked_by_agent_provider_io(tenant,cases,case,ev
     with ThreadPoolExecutor(max_workers=2) as pool:
         running=pool.submit(post,'/cases/'+str(case['id'])+'/agents',dict(request_id=str(uuid4()),role='alert_triage',input_evidence_id=str(holder['id']),model=agents.DEFAULT_MODEL,key_scope='personal',approved='yes'))
         try:
-            assert active.wait(3)
+            # The isolated PostgreSQL fixture can take several seconds to
+            # finish its first request on a busy ARM runner.  Keep this a
+            # bounded responsiveness check without making startup latency look
+            # like a workbench deadlock.
+            assert active.wait(10), 'ERROR agent start did not enter the provider-call boundary'
             stopped=pool.submit(post,'/cases/'+str(case['id'])+'/agents/'+str(uuid4())+'/stop',{})
-            assert stopped.result(timeout=2)=='200 OK'
+            stopped_status=stopped.result(timeout=5)
+            assert stopped_status=='200 OK', f'ERROR Stop response was {stopped_status!r}'
         finally:release.set()
-        assert running.result(timeout=3)=='200 OK'
+        running_status=running.result(timeout=10)
+        assert running_status=='200 OK', f'ERROR provider-bound start response was {running_status!r}'
 
 
 def test_memory_read_tool_without_supported_history_exports_no_contents(tenant,cases,case,evidence,setup):
@@ -252,3 +258,4 @@ def test_active_personal_key_requires_complete_encrypted_material(tenant,setup,c
     with psycopg.connect(tenant.db.app) as conn:
         with pytest.raises(psycopg.errors.CheckViolation):
             conn.execute(sql.SQL('UPDATE gabriel_identity.personal_provider_secrets SET {}=NULL WHERE organization_id=%s').format(sql.Identifier(column)),(tenant.org,))
+

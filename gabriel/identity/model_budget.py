@@ -16,6 +16,7 @@ from gabriel.identity.service import (
 DEFAULTS = dict(enabled=True, month_microusd=18000000, day_microusd=500000,
                 investigation_microusd=50000)
 MODELS = {'openrouter': set(ROUTES)|{'google/gemini-2.5-flash-lite', 'google/gemini-2.5-flash'},
+          'deepinfra': set(ROUTES),
           'nvidia': {'nvidia/nemotron-3-super-120b-a12b'}}
 
 
@@ -143,7 +144,7 @@ class ModelBudgetService(IdentityService):
         output_rate=integer(output_microusd_per_million,0,100000000)
         ttl_seconds=integer(ttl_seconds,60,3600)
         if type(_personal) is not bool:raise InvalidIdentityInput('invalid_personal_quote')
-        if _personal and (provider!='openrouter' or (input_rate,output_rate)!=(500000,3000000)):
+        if _personal and (provider not in {'openrouter','deepinfra'} or (input_rate,output_rate)!=(500000,3000000)):
             raise AccessDenied('personal_specialist_fixed_quote_required')
         with connection(self._dsn) as conn:
             principal=self._principal(conn,token,lock=True) if _personal else self._admin(conn,token)

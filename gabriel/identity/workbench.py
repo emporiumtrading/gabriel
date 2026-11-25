@@ -119,6 +119,7 @@ class Workbench:
             'AI spending':'Review reservations, set allowances and keep costs within your control.',
             'Audit activity':'Trace recorded actions across your organization.',
             'Your AI keys':'Manage your organization’s private provider connections.',
+            'MCP connections':'Connect approved read-only security context sources with explicit specialist scope.',
             'Case provenance':'Follow the recorded links between your case, evidence and observations.',
             'Specialist assessments':'Review specialist findings alongside their evidence and limitations.',
             'Memory review':'Control what is proposed, reviewed and retained for later investigations.',
@@ -131,9 +132,10 @@ class Workbench:
             items=[('/cases','Cases','▦'),('/sources','Browser health','◎'),('/spending','AI spending','$')]
             if principal.role!='viewer': items.extend([('/cases/new','New case','+'),('/audit','Audit','≡')])
             if principal.role!='viewer': items.append(('/personal-providers','My AI key','◇'))
+            if principal.role!='viewer': items.append(('/mcp','MCP connections','⇄'))
             if principal.role in {'owner','admin'}: items.extend([('/providers','Organization AI keys','◇'),('/members','Team members','♙')])
             active={'Browser health and coverage':'/sources','AI spending':'/spending','New investigation':'/cases/new',
-                'Audit activity':'/audit','Your AI keys':'/providers','My AI key':'/personal-providers','Team members':'/members'}.get(title,'/cases')
+                'Audit activity':'/audit','Your AI keys':'/providers','My AI key':'/personal-providers','MCP connections':'/mcp','Team members':'/members'}.get(title,'/cases')
             navigation='<div><span class="nav-label">Workspace</span><nav aria-label="Main navigation">'+''.join(
                 '<a href="'+path+'"'+(' aria-current="page"' if path==active else '')+'><span class="nav-icon" aria-hidden="true">'+icon+'</span>'+label+'</a>'
                 for path,label,icon in items)+'</nav></div>'
@@ -199,24 +201,60 @@ class Workbench:
             body+=table(['Username','Role','Active'],[(e(row['username']),e(row['role']),e(row['active'])) for row in rows])
             body+=self._form('/members/create','Add team member','<label>Username<input name="username" required maxlength="64"></label><label>Initial password (at least 16 characters)<input name="password" type="password" autocomplete="new-password" required minlength="16" maxlength="1024"></label><label>Role<select name="role"><option value="analyst">Analyst</option><option value="viewer">Viewer</option></select></label>')
             return '200 OK',self._page('Team members',body,principal),[]
+        mcp_path=re.fullmatch('/mcp(?:/(register|refresh|revoke))?(?:/('+ID+'))?',path)
+        if mcp_path:
+            from gabriel.identity.mcp_gateway import McpGateway
+            if self._provider_vault is None: raise AccessDenied('provider_vault_not_configured')
+            operation,connection_id=mcp_path.groups()
+            if operation in {'register','refresh','revoke'} and principal.role not in {'owner','admin'}:
+                raise AccessDenied('operation_not_permitted')
+            gateway=McpGateway(self._provider_vault)
+            if method=='POST':
+                if operation=='register':
+                    expected={'csrf','name','endpoint','roles','bearer_token'}
+                    if set(fields)!=expected: raise AccessDenied('invalid_mcp_form')
+                    gateway.register(self._token,fields['name'],fields['endpoint'],fields['roles'],bearer_token=fields['bearer_token'] or None)
+                elif operation=='refresh' and connection_id:
+                    if set(fields)!={'csrf'}: raise AccessDenied('invalid_mcp_form')
+                    gateway.refresh(self._token,connection_id)
+                elif operation=='revoke' and connection_id:
+                    if set(fields)!={'csrf'}: raise AccessDenied('invalid_mcp_form')
+                    gateway.revoke(self._token,connection_id)
+                else: raise AccessDenied('invalid_mcp_route')
+                return '303 See Other',b'',[('Location','/mcp')]
+            if method!='GET' or operation or connection_id: raise AccessDenied('workbench_route_denied')
+            rows=gateway.list(self._token)
+            body='<p>Only HTTPS MCP endpoints with explicitly read-only tool annotations are admitted. Gabriel stores bearer credentials encrypted, keeps tool manifests bounded, strips sensitive fields from results, and never forwards browser cookies, auth headers or raw page contents through this gateway.</p>'
+            body+='<div class="notice">MCP tools are untrusted input. A connection is not usable until its manifest is refreshed and its tool is explicitly marked read-only. Write, destructive and action-oriented tools are rejected.</div>'
+            body+=table(['Connection','Status','Roles','Tools','Manifest','Last checked'],[(e(row['name'])+'<br><small>'+e(row['endpoint'])+'</small>',e(row['status']),e(', '.join(row['roles'])),e(row['tool_count']),e(row['tool_manifest_digest'] or '—'),e(row['checked_at'] or '—')) for row in rows]) if rows else '<div class="empty-state"><span class="empty-mark">⇄</span><h2>No MCP connections yet</h2><p>Start with a read-only, vendor-neutral source such as a SIEM, identity, cloud or ticketing context server.</p></div>'
+            if principal.role in {'owner','admin'}:
+                body+=self._form('/mcp/register','Register read-only MCP connection','<label>Name<input name="name" maxlength="64" pattern="[a-z][a-z0-9_.-]{2,63}" required></label><label>HTTPS endpoint<input name="endpoint" type="url" placeholder="https://host.example/mcp" maxlength="512" required></label><label>Specialist roles (comma-separated)<input name="roles" placeholder="alert_triage,threat_hunting" maxlength="512" required></label><label>Bearer token (optional; encrypted at rest)<input name="bearer_token" type="password" autocomplete="new-password" maxlength="8192"></label>')
+                for row in rows:
+                    if not row['revoked']:
+                        body+=self._form('/mcp/refresh/'+e(row['id']),'Refresh '+e(row['name'])+' manifest')
+                        body+=self._form('/mcp/revoke/'+e(row['id']),'Revoke '+e(row['name']))
+            return '200 OK',self._page('MCP connections',body,principal),[]
         if path in {'/personal-providers','/personal-providers/save','/personal-providers/revoke'}:
             if principal.role not in {'owner','admin','analyst'}:raise AccessDenied('personal_provider_writer_required')
             if self._provider_vault is None:raise AccessDenied('provider_vault_not_configured')
             from gabriel.identity.personal_providers import PersonalProviders
             providers=PersonalProviders(self._provider_vault)
             if method=='POST':
-                expected={'csrf','api_key'} if path.endswith('/save') else {'csrf'}
+                expected={'csrf','provider','api_key'} if path.endswith('/save') else ({'csrf','provider'} if 'provider' in fields else {'csrf'})
                 if path=='/personal-providers' or set(fields)!=expected:raise AccessDenied('invalid_personal_provider_form')
-                if path.endswith('/save'):providers.configure(self._token,'openrouter',fields['api_key'])
-                else:providers.revoke(self._token)
+                if path.endswith('/save'):
+                    if fields['provider'] not in {'openrouter','deepinfra'}:raise AccessDenied('invalid_personal_provider_form')
+                    providers.configure(self._token,fields['provider'],fields['api_key'])
+                else:providers.revoke(self._token,fields.get('provider','openrouter'))
                 return '303 See Other',b'',[('Location','/personal-providers')]
             if method!='GET' or path!='/personal-providers':raise AccessDenied('workbench_route_denied')
             rows=providers.status(self._token)
-            body='<p>Your personal OpenRouter key is encrypted in the database and can only be used by your own signed-in agent runs. Organization keys remain separate. No automatic fallback or shared development key is used.</p>'
-            body+='<p>Use a dedicated inference key capped at $18/month with $18 initially available. Validation needs provider connectivity. Organization spending limits still apply. Adding a key does not admit an unqualified model.</p>'
+            body='<p>Your personal provider keys are encrypted in the database and can only be used by your own signed-in agent runs. Organization keys remain separate. No automatic fallback or shared development key is used.</p>'
+            body+='<p>OpenRouter requires its dedicated $18/month funding check. DeepInfra validates the authenticated account-limit endpoint; its external balance is not independently attested by Gabriel. Organization spending limits still apply. Adding a key does not admit an unqualified model.</p>'
             body+=table(['Provider','Status','Revision'],[(e(row['provider']),e(row['status']),e(row['revision'])) for row in rows])
-            body+=self._form('/personal-providers/save','Save and verify my key','<label>Personal OpenRouter API key<input type="password" name="api_key" autocomplete="off" maxlength="512" required></label>')
-            body+=self._form('/personal-providers/revoke','Revoke my key','<p>Future dispatches using this key will be denied.</p>')
+            for provider,label in [('openrouter','OpenRouter'),('deepinfra','DeepInfra')]:
+                body+=self._form('/personal-providers/save','Save and verify my '+label+' key','<input type="hidden" name="provider" value="'+provider+'"><label>Personal '+label+' API key<input type="password" name="api_key" autocomplete="off" maxlength="512" required></label>')
+                body+=self._form('/personal-providers/revoke','Revoke my '+label+' key','<input type="hidden" name="provider" value="'+provider+'"><p>Future dispatches using this key will be denied.</p>')
             return '200 OK',self._page('My AI key',body,principal),[]
         tool_path=re.fullmatch('/cases/('+ID+')/tools',path)
         if tool_path:
@@ -246,9 +284,10 @@ class Workbench:
                     result=hermes.stop(self.service,self._token,run_id) if operation=='stop' else hermes.resume(self.service,self._provider_vault,self._token,run_id)
                 else:
                     required={'csrf','request_id','input_evidence_id','model','specialist_model','key_scope','selected_leases','operation'}
-                    if set(fields)-{'approved'}!=required:raise AccessDenied('invalid_hermes_form')
+                    provider_fields={'provider','specialist_provider'}
+                    if set(fields)-{'approved'} not in {required,required|provider_fields}:raise AccessDenied('invalid_hermes_form')
                     leases=[] if fields['selected_leases']=='local' else fields['selected_leases'].split(',')
-                    options=dict(model=fields['model'],specialist_model=fields['specialist_model'],key_scope=fields['key_scope'],lease_ids=leases)
+                    options=dict(model=fields['model'],provider=fields.get('provider','openrouter'),specialist_model=fields['specialist_model'],specialist_provider=fields.get('specialist_provider','openrouter'),key_scope=fields['key_scope'],lease_ids=leases)
                     if fields['operation']=='preflight':
                         result=hermes.preflight(self.service,self._provider_vault,self._token,case_id,fields['input_evidence_id'],**options)
                         body+='<h2>Investigation readiness</h2>'+table(['Check','Status'],[(e(c['check'].replace('_',' ')),e(c['status'].replace('_',' '))) for c in result['checks']])
@@ -276,7 +315,7 @@ class Workbench:
                 if inputs:
                     tab_options='<option value="local">Local typed evidence only</option>'+''.join('<option value="'+e(v)+'">Selected session '+e(str(i+1))+'</option>' for i,v in enumerate(owned))
                     if 2<=len(owned)<=8:tab_options+='<option value="'+e(','.join(owned))+'">All '+e(len(owned))+' selected sessions in this case</option>'
-                    common='<input type="hidden" name="request_id" value="'+str(uuid4())+'"><label>Typed evidence with source links<select name="input_evidence_id">'+inputs+'</select></label><label>Investigation scope<select name="selected_leases">'+tab_options+'</select></label><label>Hermes model<select name="model"><option>'+e(hermes.DEFAULT_MODEL)+'</option></select></label><label>Specialist model<select name="specialist_model">'+''.join('<option'+(' selected' if m==hermes.DEFAULT_MODEL else '')+'>'+e(m)+'</option>' for m in hermes.model_routes.ROUTES)+'</select></label><label>Key source<select name="key_scope"><option value="personal">My personal key</option>'+('<option value="organization">Organization key</option>' if principal.role in {'owner','admin'} else '')+'</select></label>'
+                    common='<input type="hidden" name="request_id" value="'+str(uuid4())+'"><label>Typed evidence with source links<select name="input_evidence_id">'+inputs+'</select></label><label>Investigation scope<select name="selected_leases">'+tab_options+'</select></label><label>Hermes model<select name="model"><option>'+e(hermes.DEFAULT_MODEL)+'</option></select></label><label>Hermes provider<select name="provider"><option value="openrouter">OpenRouter</option><option value="deepinfra">DeepInfra</option></select></label><label>Specialist model<select name="specialist_model">'+''.join('<option'+(' selected' if m==hermes.DEFAULT_MODEL else '')+'>'+e(m)+'</option>' for m in hermes.model_routes.ROUTES)+'</select></label><label>Specialist provider<select name="specialist_provider"><option value="openrouter">OpenRouter</option><option value="deepinfra">DeepInfra</option></select></label><label>Key source<select name="key_scope"><option value="personal">My personal key</option>'+('<option value="organization">Organization key</option>' if principal.role in {'owner','admin'} else '')+'</select></label>'
                     body+=self._form(base,'Check readiness',common+'<input type="hidden" name="operation" value="preflight">')
                     body+=self._form(base,'Start Hermes investigation',common+'<input type="hidden" name="operation" value="start"><label><input type="checkbox" name="approved" value="yes" required>I approve sending the displayed minimized scope and eligible reviewed typed historical references to Hermes and the relevant specialists through my selected key and spending limits. Free-text and performance-test memory are excluded.</label>')
             for record in hermes.history(self.service,self._token,case_id):
@@ -289,7 +328,6 @@ class Workbench:
             case_id,job_id,operation=agent_path.groups()
             if principal.role not in {'owner','admin','analyst'}:raise AccessDenied('operation_not_permitted')
             base='/cases/'+case_id+'/agents'
-            snapshot=self.service.get_case(self._token,case_id)
             body='<p>Each specialist is a designated AI agent with a role-specific prompt, source-linked results and an allowlist of local read tools. Agents may investigate within three reasoning rounds; response actions remain separate.</p>'
             if method=='POST':
                 if self._provider_vault is None:raise AccessDenied('provider_vault_not_configured')
@@ -297,14 +335,19 @@ class Workbench:
                     if set(fields)!={'csrf'}:raise AccessDenied('invalid_agent_form')
                     result=agents.stop(self.service,self._token,job_id) if operation=='stop' else agents.resume(self.service,self._provider_vault,self._token,job_id)
                 else:
-                    if set(fields)!={'csrf','request_id','role','input_evidence_id','model','key_scope','approved'} or fields['approved']!='yes':raise AccessDenied('specialist_ai_export_consent_required')
-                    result=agents.orchestrate(self.service,self._provider_vault,self._token,case_id,fields['request_id'],fields['input_evidence_id'],model=fields['model'],key_scope=fields['key_scope'],approved=True) if fields['role']=='all' else agents.start(self.service,self._provider_vault,self._token,case_id,fields['request_id'],fields['role'],fields['input_evidence_id'],model=fields['model'],key_scope=fields['key_scope'],approved=True)
+                    base_fields={'csrf','request_id','role','input_evidence_id','model','key_scope','approved'}
+                    if set(fields) not in (base_fields,base_fields|{'provider'}) or fields['approved']!='yes':raise AccessDenied('specialist_ai_export_consent_required')
+                    provider=fields.get('provider','openrouter')
+                    result=agents.orchestrate(self.service,self._provider_vault,self._token,case_id,fields['request_id'],fields['input_evidence_id'],model=fields['model'],provider=provider,key_scope=fields['key_scope'],approved=True) if fields['role']=='all' else agents.start(self.service,self._provider_vault,self._token,case_id,fields['request_id'],fields['role'],fields['input_evidence_id'],model=fields['model'],provider=provider,key_scope=fields['key_scope'],approved=True)
                 body+='<p id="agent-result">'+e(result.get('state','stopped'))+'</p>'
-                if job_id and operation=='stop':
-                    return '200 OK',self._page('Specialist AI agents',body,principal),[]
                 for step in result.get('steps',[]):
                     body+='<p>Round '+e(step['round'])+' · '+e(step['disposition'])+' · <a href="/cases/'+case_id+'/evidence/'+e(step['answer_evidence_id'])+'">Review unreviewed AI answer</a></p>'
             elif method!='GET':raise AccessDenied('workbench_route_denied')
+            # Do not lock/read the case before dispatching a slow specialist
+            # request.  The specialist operation performs its own case/job
+            # authorization; taking the case snapshot first could delay the
+            # provider boundary and make Stop compete with startup I/O.
+            snapshot=self.service.get_case(self._token,case_id)
             statuses=[agents.readiness(role) for role in ROLES]
             body+=table(['Agent','AI configuration','Local read tools'],[(e(x['role'].replace('_',' ')),e(x['qualification'].replace('_',' ')),e(', '.join(x['tools']))) for x in statuses])
             body+='<p>Packaged open-source tools and their skills are available for local evidence analysis without an AI key. Parser availability is checked on use. Tool failures and unsupported formats remain explicit; missing tools are never silently installed.</p>'
@@ -315,7 +358,7 @@ class Workbench:
                     body+=table(['Tool','Open-source license','Usage skill'],[(e(n.replace('_',' ')),e(row['license']),e(row['description'])) for n,row in catalog.items()])
                     choices=''.join('<option value="'+role+'/'+name+'">'+e(role.replace('_',' ')+' / '+name.replace('_',' '))+'</option>' for role in ROLES for name in agents.TOOLS[role])
                     body+=self._form('/cases/'+case_id+'/tools','Run local investigation tool','<input type="hidden" name="request_id" value="'+str(uuid4())+'"><label>Specialist and tool<select name="role_tool">'+choices+'</select></label><label>Typed evidence<select name="input_evidence_id">'+options+'</select></label><label><input type="checkbox" name="approved" value="yes" required>Analyze the linked source artifacts and, for memory review, eligible reviewed case or organization references. No model call is made by this local tool.</label>')
-                    body+=self._form(base,'Start specialist agent','<input type="hidden" name="request_id" value="'+str(uuid4())+'"><label>Specialist<select name="role"><option value="all">Hermes: relevant agents</option>'+''.join('<option value="'+role+'">'+e(role.replace('_',' '))+'</option>' for role in ROLES)+'</select></label><label>Typed evidence<select name="input_evidence_id">'+options+'</select></label><label>Model<select name="model">'+''.join('<option value="'+e(m)+'"'+(' selected' if m==agents.DEFAULT_MODEL else '')+'>'+e(m)+'</option>' for m in agents.model_routes.ROUTES)+'</select></label><label>Key source<select name="key_scope"><option value="personal">My personal key</option>'+('<option value="organization">Organization key</option>' if principal.role in {'owner','admin'} else '')+'</select></label><label><input type="checkbox" name="approved" value="yes" required>I approve sending minimized current typed facts, local tool summaries and eligible reviewed typed historical references to this model for this investigation. Free-text and performance-test memory are excluded.</label>')
+                    body+=self._form(base,'Start specialist agent','<input type="hidden" name="request_id" value="'+str(uuid4())+'"><label>Specialist<select name="role"><option value="all">Hermes: relevant agents</option>'+''.join('<option value="'+role+'">'+e(role.replace('_',' '))+'</option>' for role in ROLES)+'</select></label><label>Typed evidence<select name="input_evidence_id">'+options+'</select></label><label>Model<select name="model">'+''.join('<option value="'+e(m)+'"'+(' selected' if m==agents.DEFAULT_MODEL else '')+'>'+e(m)+'</option>' for m in agents.model_routes.ROUTES)+'</select></label><label>Provider<select name="provider"><option value="openrouter">OpenRouter</option><option value="deepinfra">DeepInfra</option></select></label><label>Key source<select name="key_scope"><option value="personal">My personal key</option>'+('<option value="organization">Organization key</option>' if principal.role in {'owner','admin'} else '')+'</select></label><label><input type="checkbox" name="approved" value="yes" required>I approve sending minimized current typed facts, local tool summaries and eligible reviewed typed historical references to this model for this investigation. Free-text and performance-test memory are excluded.</label>')
             for record in agents.history(self.service,self._token,case_id):
                 body+='<section><h2>'+e(record['role'].replace('_',' '))+'</h2><p>'+e(record['created_at'])+'</p>'+self._form(base+'/'+record['id']+'/resume','Inspect or resume agent','')+self._form(base+'/'+record['id']+'/stop','Stop agent','')+'</section>'
             return '200 OK',self._page('Specialist AI agents',body,principal),[]
@@ -328,7 +371,7 @@ class Workbench:
             providers=CustomerProviders(self._provider_vault)
             if method=='POST':
                 expected={'csrf','provider','api_key'} if path=='/providers/save' else {'csrf','provider'}
-                if path=='/providers' or set(fields)!=expected or fields['provider'] not in {'openrouter','nvidia'}:
+                if path=='/providers' or set(fields)!=expected or fields['provider'] not in {'openrouter','deepinfra','nvidia'}:
                     raise AccessDenied('invalid_provider_form')
                 if path=='/providers/save': providers.configure(self._token,fields['provider'],fields['api_key'])
                 else: self._provider_vault.revoke(self._token,fields['provider'])
@@ -337,9 +380,9 @@ class Workbench:
             rows=providers.status(self._token)
             body='<p>Use your organization’s own provider accounts. Gabriel has no shared API key and does not top up accounts automatically.</p>'
             body+='<p>OpenRouter setup requires at least $18 account credit and $18 remaining on a dedicated inference key capped at $18 per month. After setup, normal usage may reduce the balance; daily and investigation limits still apply.</p>'
-            body+='<p class="notice">Adding a key does not enable an unqualified model. NVIDIA validation and production routing remain pending. Balance checks show historical provider reports.</p>'
+            body+='<p class="notice">Adding a key does not enable an unqualified model. NVIDIA validation and production routing remain pending. DeepInfra account validation does not provide an independent balance attestation; Gabriel still enforces its own spending ceilings.</p>'
             body+=table(['Provider','Setup status','Last checked'],[(e(r['provider']),e(r['status'].replace('_',' ')),e(r['checked_at'] or 'Not checked')) for r in rows])
-            for provider,label in [('openrouter','OpenRouter'),('nvidia','NVIDIA')]:
+            for provider,label in [('openrouter','OpenRouter'),('deepinfra','DeepInfra'),('nvidia','NVIDIA')]:
                 body+='<h2>'+label+'</h2>'+self._form('/providers/save','Save your '+label+' key',
                     '<input type="hidden" name="provider" value="'+provider+'"><label>Your '+label+' API key<input type="password" name="api_key" autocomplete="off" spellcheck="false" maxlength="512" required></label>')
                 body+=self._form('/providers/revoke','Remove '+label+' key','<input type="hidden" name="provider" value="'+provider+'">')
