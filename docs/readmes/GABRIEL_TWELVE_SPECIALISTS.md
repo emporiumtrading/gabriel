@@ -56,6 +56,19 @@ write authority and an open case are required for execution. Both new and old
 records share the 128-run case limit. The coordinator remains its earlier fixed
 two-step local plan; full specialist scheduling/disagreement handling is open.
 
+## Cross-specialist detective synthesis
+
+A twelve-role plan now has an explicit collaboration receipt after all roles
+complete. It preserves each role's bounded counts, urgency, uncertainty and
+contradictions; reports missing roles; records disagreements instead of voting
+them away; and publishes a deterministic handoff map. For example, telemetry
+health informs scoping and hunting, hunting informs DFIR and detection
+engineering, identity informs scoping and response, and recovery feeds response
+and future detection work. The receipt is a coordination artifact, not a new
+authority layer: every underlying specialist run remains separately reviewable,
+source authenticity remains unverified, and response execution remains disabled.
+
+
 ## Live attack detection is a separate required acceptance boundary
 
 The owner explicitly requires evidence-based recognition of brute force,
