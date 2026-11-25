@@ -301,7 +301,7 @@ class Workbench:
                     result=agents.stop(self.service,self._token,job_id) if operation=='stop' else agents.resume(self.service,self._provider_vault,self._token,job_id)
                 else:
                     base_fields={'csrf','request_id','role','input_evidence_id','model','key_scope','approved'}
-                    if set(fields) not in {base_fields,base_fields|{'provider'}} or fields['approved']!='yes':raise AccessDenied('specialist_ai_export_consent_required')
+                    if set(fields) not in (base_fields,base_fields|{'provider'}) or fields['approved']!='yes':raise AccessDenied('specialist_ai_export_consent_required')
                     provider=fields.get('provider','openrouter')
                     result=agents.orchestrate(self.service,self._provider_vault,self._token,case_id,fields['request_id'],fields['input_evidence_id'],model=fields['model'],provider=provider,key_scope=fields['key_scope'],approved=True) if fields['role']=='all' else agents.start(self.service,self._provider_vault,self._token,case_id,fields['request_id'],fields['role'],fields['input_evidence_id'],model=fields['model'],provider=provider,key_scope=fields['key_scope'],approved=True)
                 body+='<p id="agent-result">'+e(result.get('state','stopped'))+'</p>'

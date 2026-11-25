@@ -203,17 +203,6 @@ def test_workbench_stop_is_not_blocked_by_agent_provider_io(tenant,cases,case,ev
     from gabriel.identity.workbench import Workbench,COOKIE,ticket_hash
     app=Workbench(cases,setup['token'],dict(endpoint='https://localhost:8444',ticket_digest=ticket_hash('gwt1_'+'a'*43)),provider_vault=setup['vault'])
     app._cookie='generated-agent-ui-cookie';app._claimed=True
-    route_trace=[]
-    original_route=app._route
-    def traced_route(environ):
-        try:
-            result=original_route(environ)
-            route_trace.append('returned '+result[0])
-            return result
-        except BaseException as error:
-            route_trace.append(type(error).__name__+':'+str(error))
-            raise
-    monkeypatch.setattr(app,'_route',traced_route)
     active=Event();release=Event()
     def slow(*args,**kwargs):
         active.set();assert release.wait(10)
@@ -221,16 +210,13 @@ def test_workbench_stop_is_not_blocked_by_agent_provider_io(tenant,cases,case,ev
     def stop(*args,**kwargs):release.set();return dict(stopped=True)
     monkeypatch.setattr(agents,'start',slow);monkeypatch.setattr(agents,'stop',stop)
     _,holder=intake(tenant,cases,case,evidence)
-    running_status=[]
     def post(path,fields):
         raw=urlencode(dict(csrf=app._csrf,**fields)).encode();observed=[]
         env=dict(REQUEST_METHOD='POST',PATH_INFO=path,CONTENT_TYPE='application/x-www-form-urlencoded',
             CONTENT_LENGTH=str(len(raw)),HTTP_HOST='localhost:8444',HTTP_ORIGIN='https://localhost:8444',
             HTTP_COOKIE=COOKIE+'='+app._cookie,**{'wsgi.url_scheme':'https','wsgi.input':BytesIO(raw)})
         app(env,lambda status,headers:observed.append(status))
-        status=observed[0] if observed else 'NO_RESPONSE_STATUS'
-        if path.endswith('/agents'): running_status.append(status)
-        return status
+        return observed[0]
     with ThreadPoolExecutor(max_workers=2) as pool:
         running=pool.submit(post,'/cases/'+str(case['id'])+'/agents',dict(request_id=str(uuid4()),role='alert_triage',input_evidence_id=str(holder['id']),model=agents.DEFAULT_MODEL,key_scope='personal',approved='yes'))
         try:
@@ -238,7 +224,7 @@ def test_workbench_stop_is_not_blocked_by_agent_provider_io(tenant,cases,case,ev
             # finish its first request on a busy ARM runner.  Keep this a
             # bounded responsiveness check without making startup latency look
             # like a workbench deadlock.
-            assert active.wait(10), f'ERROR agent start did not enter the provider-call boundary; done={running.done()} status={running_status!r} trace={route_trace!r}'
+            assert active.wait(10), 'ERROR agent start did not enter the provider-call boundary'
             stopped=pool.submit(post,'/cases/'+str(case['id'])+'/agents/'+str(uuid4())+'/stop',{})
             stopped_status=stopped.result(timeout=5)
             assert stopped_status=='200 OK', f'ERROR Stop response was {stopped_status!r}'
