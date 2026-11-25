@@ -65,7 +65,7 @@
       "file": "preview-specialists.png",
       "title": "Supervisor assignments and analyst progress",
       "stage": "1-preflight-assignment",
-      "description": "Illustrative Hermes coordination of bounded specialist assignments.",
+      "description": "Illustrative Gabriel coordination of bounded specialist assignments.",
       "kind": "illustrative_design_not_implemented",
       "sha256": "45b00f29ad69e9a9da3da1f066257d8f4f9a95cc25a2cb6a9e992ede4dc7c608",
       "width": 1440,
@@ -85,14 +85,15 @@
   "synthetic_data": true,
   "model_calls": 0,
   "production_admission": false,
-  "hermes_integrated": false,
-  "hermes_requirement": "required_integration_in_progress",
+  "gabriel_supervisor_integrated": false,
+  "gabriel_supervisor_requirement": "required_integration_in_progress",
   "environment": "Isolated Chromium screenshot lab, sandbox disabled inside non-root private Docker container",
   "actual_screens": "Rendered current workbench against ephemeral PostgreSQL and actual local parser service",
   "design_previews": "Clearly labeled static workflow concepts; external-response controls are disabled",
-  "workflow_run": "https://github.com/emporiumtrading/redamon/actions/runs/40543603665",
+  "workflow_run": "https://github.com/emporiumtrading/gabriel/actions/runs/40543603665",
   "artifact_id": 12752575911,
   "artifact_zip_sha256": "c32a716e9657816fcafd20af9822e620827b504bed57fa5dc65ec83c7989e3f4",
   "capture_branch_head": "107d015f57b7178d494ad5be62a8f0dc19843877",
   "visual_review": "All eight images reviewed; responsive mobile capture and no horizontal overflow verified by capture lab."
 }
+
