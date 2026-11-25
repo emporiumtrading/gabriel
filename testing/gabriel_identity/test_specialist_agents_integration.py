@@ -210,13 +210,16 @@ def test_workbench_stop_is_not_blocked_by_agent_provider_io(tenant,cases,case,ev
     def stop(*args,**kwargs):release.set();return dict(stopped=True)
     monkeypatch.setattr(agents,'start',slow);monkeypatch.setattr(agents,'stop',stop)
     _,holder=intake(tenant,cases,case,evidence)
+    running_status=[]
     def post(path,fields):
         raw=urlencode(dict(csrf=app._csrf,**fields)).encode();observed=[]
         env=dict(REQUEST_METHOD='POST',PATH_INFO=path,CONTENT_TYPE='application/x-www-form-urlencoded',
             CONTENT_LENGTH=str(len(raw)),HTTP_HOST='localhost:8444',HTTP_ORIGIN='https://localhost:8444',
             HTTP_COOKIE=COOKIE+'='+app._cookie,**{'wsgi.url_scheme':'https','wsgi.input':BytesIO(raw)})
         app(env,lambda status,headers:observed.append(status))
-        return observed[0]
+        status=observed[0] if observed else 'NO_RESPONSE_STATUS'
+        if path.endswith('/agents'): running_status.append(status)
+        return status
     with ThreadPoolExecutor(max_workers=2) as pool:
         running=pool.submit(post,'/cases/'+str(case['id'])+'/agents',dict(request_id=str(uuid4()),role='alert_triage',input_evidence_id=str(holder['id']),model=agents.DEFAULT_MODEL,key_scope='personal',approved='yes'))
         try:
@@ -224,7 +227,7 @@ def test_workbench_stop_is_not_blocked_by_agent_provider_io(tenant,cases,case,ev
             # finish its first request on a busy ARM runner.  Keep this a
             # bounded responsiveness check without making startup latency look
             # like a workbench deadlock.
-            assert active.wait(10), 'ERROR agent start did not enter the provider-call boundary'
+            assert active.wait(10), f'ERROR agent start did not enter the provider-call boundary; done={running.done()} status={running_status!r}'
             stopped=pool.submit(post,'/cases/'+str(case['id'])+'/agents/'+str(uuid4())+'/stop',{})
             stopped_status=stopped.result(timeout=5)
             assert stopped_status=='200 OK', f'ERROR Stop response was {stopped_status!r}'
@@ -258,3 +261,4 @@ def test_active_personal_key_requires_complete_encrypted_material(tenant,setup,c
     with psycopg.connect(tenant.db.app) as conn:
         with pytest.raises(psycopg.errors.CheckViolation):
             conn.execute(sql.SQL('UPDATE gabriel_identity.personal_provider_secrets SET {}=NULL WHERE organization_id=%s').format(sql.Identifier(column)),(tenant.org,))
+
