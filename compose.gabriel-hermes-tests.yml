@@ -2,6 +2,9 @@ services:
   identity-tests:
     environment:
       GABRIEL_REQUIRE_HERMES: '1'
+      GABRIEL_TOOLBUS_CA_FILE: /run/secrets/toolbus_ca
+      GABRIEL_TOOLBUS_TOKEN_FILE: /run/secrets/toolbus_token
+    secrets: [toolbus_ca, toolbus_token]
   hermes:
     build:
       context: .
@@ -15,8 +18,14 @@ services:
     cpus: 2
     networks: [toolbus]
     tmpfs: ['/tmp:rw,noexec,nosuid,nodev,size=256m']
+    environment:
+      GABRIEL_TOOLBUS_CA_FILE: /run/secrets/toolbus_ca
+      GABRIEL_TOOLBUS_CERT_FILE: /run/secrets/toolbus_certificate
+      GABRIEL_TOOLBUS_KEY_FILE: /run/secrets/toolbus_key
+      GABRIEL_TOOLBUS_TOKEN_FILE: /run/secrets/toolbus_token
+    secrets: [toolbus_ca, toolbus_certificate, toolbus_key, toolbus_token]
     healthcheck:
-      test: [CMD, /opt/hermes/.venv/bin/python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8451/health',timeout=2).read()"]
+      test: [CMD, /opt/hermes/.venv/bin/python, /opt/gabriel-hermes/server.py, health]
       interval: 3s
       timeout: 3s
       retries: 20

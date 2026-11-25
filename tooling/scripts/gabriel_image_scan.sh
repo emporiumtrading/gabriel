@@ -6,6 +6,15 @@ image_id=${1:?Exact locally built image ID required}
 report=${2:?New report directory required}
 mkdir -m 700 "$report"
 report=$(realpath "$report")
+vex_mount=()
+vex_args=()
+if [[ -n ${3:-} ]]; then
+    vex=${3}
+    [[ -f $vex ]] || exit 2
+    cp "$(realpath "$vex")" "$report/assessed-findings.openvex.json"
+    vex_mount=(-v "$report/assessed-findings.openvex.json:/policy/assessed-findings.openvex.json:ro")
+    vex_args=(--vex /policy/assessed-findings.openvex.json)
+fi
 cache=$(mktemp -d)
 syft_cache=$(mktemp -d)
 syft_temp=(--tmpfs /tmp:rw,nosuid,nodev,size=1g,mode=1777)
@@ -34,8 +43,8 @@ vulnerabilities=0
 docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges \
     --pids-limit 128 --memory 2g --cpus 2 --user "$(id -u):$(id -g)" \
     --tmpfs /tmp:rw,nosuid,nodev,size=256m,mode=1777 -e XDG_CACHE_HOME=/cache -e GRYPE_CHECK_FOR_APP_UPDATE=false \
-    -v "$cache:/cache" -v "$report/sbom.json:/image/sbom.json:ro" \
-    "$scanner" sbom:/image/sbom.json -o json --fail-on high > "$report/vulnerabilities.json" || vulnerabilities=$?
+    -v "$cache:/cache" -v "$report/sbom.json:/image/sbom.json:ro" "${vex_mount[@]}" \
+    "$scanner" sbom:/image/sbom.json "${vex_args[@]}" -o json --fail-on high > "$report/vulnerabilities.json" || vulnerabilities=$?
 scanner=$(sed -n '3p' "$report/scanners.txt")
 secrets=0
 docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges \

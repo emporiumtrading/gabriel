@@ -1,7 +1,7 @@
 name: Gabriel required Hermes supervision
 on:
   pull_request:
-    paths: ['gabriel/identity/**', 'gabriel/hermes/**', 'testing/gabriel_identity/test_hermes*', 'compose.gabriel*.yml', '.github/workflows/gabriel-hermes.yml']
+    paths: ['gabriel/identity/**', 'gabriel/hermes/**', 'testing/gabriel_identity/test_hermes*', 'tooling/scripts/gabriel_toolbus_prepare.py', 'compose.gabriel*.yml', '.github/workflows/gabriel-hermes.yml']
 permissions:
   contents: read
 jobs:
@@ -23,18 +23,26 @@ jobs:
           export GABRIEL_IDENTITY_SECRET_DIR="$RUNNER_TEMP/hermes-db"
           export GABRIEL_PROVIDER_KEY_DIR="$RUNNER_TEMP/hermes-provider"
           export GABRIEL_EVIDENCE_KEY_DIR="$RUNNER_TEMP/hermes-evidence"
+          export GABRIEL_TOOLBUS_TLS_DIR="$RUNNER_TEMP/hermes-toolbus"
+          mkdir -p "$RUNNER_TEMP/hermes-qualification"
+          git rev-parse HEAD > "$RUNNER_TEMP/hermes-qualification/source-sha.txt"
           python3 tooling/scripts/gabriel_identity_prepare.py "$GABRIEL_IDENTITY_SECRET_DIR"
           python3 tooling/scripts/gabriel_provider_keys.py "$GABRIEL_PROVIDER_KEY_DIR"
           python3 tooling/scripts/gabriel_evidence_keys.py "$GABRIEL_EVIDENCE_KEY_DIR"
+          python3 tooling/scripts/gabriel_toolbus_prepare.py "$GABRIEL_TOOLBUS_TLS_DIR"
           compose=(docker compose -p gabriel-hermes-check -f compose.gabriel-identity.yml -f compose.gabriel-tool-tests.yml -f compose.gabriel-hermes-tests.yml)
           trap '"${compose[@]}" --profile test down --volumes --remove-orphans' EXIT
           "${compose[@]}" --profile test build identity-tests investigation-tools hermes
-          "${compose[@]}" up -d --wait identity-db investigation-tools hermes
-          mkdir -p "$RUNNER_TEMP/hermes-qualification"
-          git rev-parse HEAD > "$RUNNER_TEMP/hermes-qualification/source-sha.txt"
+          if ! "${compose[@]}" up -d --wait identity-db investigation-tools hermes; then
+            "${compose[@]}" ps >&2 || true
+            docker inspect gabriel-hermes-check-hermes-1 --format '{{json .State.Health}}' >&2 || true
+            "${compose[@]}" logs --no-color --tail 200 hermes investigation-tools >&2 || true
+            exit 1
+          fi
           "${compose[@]}" --profile test run --rm --no-deps -T --entrypoint python identity-tests -m gabriel.identity.hermes_qualification --configurations > "$RUNNER_TEMP/hermes-qualification/configurations.json"
           "${compose[@]}" --profile test run --rm --no-deps -T --entrypoint python identity-tests -m pytest -q --assert=plain --tb=short testing/gabriel_identity/test_hermes_supervisor_integration.py::test_hermes_plans_delegates_two_independent_agents_reports_and_replays
           "${compose[@]}" --profile test run --rm --no-deps -T --entrypoint python identity-tests tooling/scripts/pytest_isolated.py all testing/gabriel_identity/test_machine_integration.py --strict --parallel 1
+          "${compose[@]}" --profile test run --rm --no-deps -T --entrypoint python identity-tests tooling/scripts/pytest_isolated.py all testing/gabriel_identity/test_toolbus_transport_integration.py --strict --parallel 1
           if ! "${compose[@]}" --profile test run --rm --no-deps -T --entrypoint python identity-tests tooling/scripts/pytest_isolated.py all testing/gabriel_identity/test_model_evaluation.py testing/gabriel_identity/test_hermes_qualification.py testing/gabriel_identity/test_hermes_supervisor.py testing/gabriel_identity/test_hermes_supervisor_integration.py testing/gabriel_identity/test_specialist_agents.py testing/gabriel_identity/test_specialist_agents_integration.py testing/gabriel_identity/test_workbench_integration.py --strict --parallel 1; then
             "${compose[@]}" --profile test run --rm --no-deps -T --entrypoint python identity-tests -m pytest -q --assert=plain --tb=short testing/gabriel_identity/test_hermes_supervisor_integration.py::test_hermes_plans_delegates_two_independent_agents_reports_and_replays || true
             "${compose[@]}" --profile test run --rm --no-deps -T --entrypoint python identity-tests -m pytest -q --assert=plain --tb=short testing/gabriel_identity/test_workbench_integration.py::test_https_case_report_custody_and_explicit_content_view || true

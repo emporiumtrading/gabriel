@@ -51,3 +51,10 @@ def test_oversized_supervisor_packet_fails_without_truncating_source_facts():
     source=document('activity',dict(category='network',outcome='observed',count=1))
     source['facts']=[dict(source['facts'][0],id=str(uuid4())) for _ in range(128)]
     with pytest.raises(AccessDenied,match='narrower_scope'):hermes.project(source,'plan')
+
+
+def test_missing_toolbus_credentials_block_required_hermes(monkeypatch):
+    monkeypatch.delenv('GABRIEL_TOOLBUS_CA_FILE',raising=False)
+    monkeypatch.delenv('GABRIEL_TOOLBUS_TOKEN_FILE',raising=False)
+    with pytest.raises(AccessDenied,match='required_hermes_runtime_unavailable'):
+        hermes.bridge.request('/health')

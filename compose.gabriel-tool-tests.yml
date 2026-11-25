@@ -4,6 +4,9 @@ services:
     networks: [identity, toolbus]
     environment:
       GABRIEL_REQUIRE_TOOLBOX: '1'
+      GABRIEL_TOOLBUS_CA_FILE: /run/secrets/toolbus_ca
+      GABRIEL_TOOLBUS_TOKEN_FILE: /run/secrets/toolbus_token
+    secrets: [toolbus_ca, toolbus_token]
   investigation-tools:
     image: gabriel-toolbox-tests:dev
     build:
@@ -22,11 +25,26 @@ services:
     networks: [toolbus]
     tmpfs: ['/tmp:rw,noexec,nosuid,nodev,size=8m']
     entrypoint: [python, -m, gabriel.toolbox.server]
+    environment:
+      GABRIEL_TOOLBUS_CA_FILE: /run/secrets/toolbus_ca
+      GABRIEL_TOOLBUS_CERT_FILE: /run/secrets/toolbus_certificate
+      GABRIEL_TOOLBUS_KEY_FILE: /run/secrets/toolbus_key
+      GABRIEL_TOOLBUS_TOKEN_FILE: /run/secrets/toolbus_token
+    secrets: [toolbus_ca, toolbus_certificate, toolbus_key, toolbus_token]
     healthcheck:
-      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8450/health',timeout=2).read()"]
+      test: [CMD, python, -m, gabriel.toolbox.server, health]
       interval: 2s
       timeout: 3s
       retries: 20
 networks:
   toolbus:
     internal: true
+secrets:
+  toolbus_ca:
+    file: ${GABRIEL_TOOLBUS_TLS_DIR:?Prepare an external tool-bus TLS directory}/ca.pem
+  toolbus_certificate:
+    file: ${GABRIEL_TOOLBUS_TLS_DIR}/server.pem
+  toolbus_key:
+    file: ${GABRIEL_TOOLBUS_TLS_DIR}/server.key
+  toolbus_token:
+    file: ${GABRIEL_TOOLBUS_TLS_DIR}/token

@@ -11,13 +11,18 @@ import re
 import stat
 import subprocess
 import sys
+import tarfile
 from uuid import uuid4
 
 from gabriel_identity_prepare import prepare as database_secrets
 from gabriel_provider_keys import prepare as keyring
+from gabriel_toolbus_prepare import prepare as toolbus_secrets
 
 REPO=Path(__file__).resolve().parents[2]
 COMPOSE=REPO/'compose.gabriel-installation.yml'
+MAX_BACKUP_BYTES=128*1024*1024
+MAX_EVIDENCE_OBJECTS=4096
+EVIDENCE_MEMBER=re.compile(r'\./[0-9a-f]{32}\.gbe')
 NETWORK_CHECK="""import json,socket
 result={'version':'gabriel-install-network-v1','dns_resolves':False,'tcp_reachable':False}
 try:
@@ -42,6 +47,7 @@ class InstallationNetworkError(ValueError):
 
 DB_TLS_COMPOSE=REPO/'compose.gabriel-installation-db-tls.yml'
 DB_TLS_RECEIPT='database-tls.json'
+TOOLBUS_TLS_RECEIPT='toolbus-tls.json'
 
 
 class InstallationDatabaseTlsRequired(ValueError):
@@ -120,6 +126,18 @@ def publish_database_tls(root,image):
     fsync_directory(root)
 
 
+def publish_toolbus_tls(root):
+    if len(list(root.glob('toolbus-tls-*')))>=16:
+        raise ValueError('toolbus_tls_history_limit_requires_operator_review')
+    name='toolbus-tls-'+uuid4().hex
+    toolbus_secrets(root/name)
+    fsync_directory(root/name)
+    temporary=root/('pending-'+uuid4().hex+'.json')
+    write(temporary,{'directory':name})
+    os.replace(temporary,root/TOOLBUS_TLS_RECEIPT)
+    fsync_directory(root)
+
+
 def fsync_directory(directory):
     fd=os.open(directory,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
     try: os.fsync(fd)
@@ -136,6 +154,7 @@ def prepare(root,port,image):
     keyring(root/'provider')
     keyring(root/'evidence',purpose='evidence-v1')
     prepare_tls(root/'tls',image)
+    publish_toolbus_tls(root)
     publish_database_tls(root,image)
     manifest=dict(schema_version=1,purpose='gabriel-local-test-installation-v1',project='gabriel-install-'+uuid4().hex[:16],
         port=port,image=image,source=run(['git','rev-parse','HEAD']).decode().strip(),production_admitted=False)
@@ -156,7 +175,20 @@ class Installation:
                 or re.fullmatch(r'[a-f0-9]{40}',c['source']) is None or type(c['port']) is not int or not 1024<=c['port']<=65535):
             raise ValueError('invalid_installation')
         self.env=dict(os.environ,GABRIEL_INSTALL_ROOT=str(root),GABRIEL_INSTALL_PORT=str(c['port']),GABRIEL_INSTALL_IMAGE=c['image'],GABRIEL_HERMES_IMAGE=c['project']+'-hermes:local')
+        self.configure_toolbus_tls()
         self.configure_database_tls()
+
+    def configure_toolbus_tls(self):
+        receipt=read(self.root/TOOLBUS_TLS_RECEIPT)
+        if (type(receipt) is not dict or set(receipt)!={'directory'} or type(receipt['directory']) is not str
+                or re.fullmatch(r'toolbus-tls-[0-9a-f]{32}',receipt['directory']) is None):
+            raise ValueError('invalid_toolbus_tls_receipt')
+        directory=self.root/receipt['directory']
+        private(directory)
+        if set(p.name for p in directory.iterdir())!={'ca.pem','server.pem','server.key','token'}:
+            raise ValueError('invalid_toolbus_tls_directory')
+        self.env['GABRIEL_TOOLBUS_TLS_DIR']=str(directory)
+        self.toolbus_tls=receipt
 
     def configure_database_tls(self):
         self.base_command=['docker','compose','--project-name',self.config['project'],'--file',str(COMPOSE)]
@@ -250,6 +282,7 @@ class Installation:
             self.compose('exec','-T','identity-db','pg_dump','-U','postgres','-d','gabriel','--format=custom',output=stream)
         with (destination/'evidence.tar.gz').open('xb') as stream:
             self.compose('run','--rm','--no-deps','-T','--entrypoint','tar','operator','-czf','-','-C','/var/lib/gabriel-evidence','.',output=stream)
+        validate_backup_files(destination)
         manifest=dict(schema_version=1,purpose='gabriel-quiesced-test-backup-v1',image=self.config['image'],source=self.config['source'],
             identity=receipt,files={name:digest(destination/name) for name in ('database.dump','evidence.tar.gz')},
             key_fingerprints={name:digest(self.root/name/'keyring.json') for name in ('provider','evidence')})
@@ -267,6 +300,13 @@ class Installation:
         try: self.start_db()
         finally: self.compose('stop','identity-db')
         return {'database_tls_renewed':True,'services_stopped':True,'requires_fresh_login':True}
+
+    def renew_toolbus_tls(self):
+        self.stop_entry()
+        self.compose('stop','hermes','investigation-tools')
+        publish_toolbus_tls(self.root)
+        self.configure_toolbus_tls()
+        return {'toolbus_tls_renewed':True,'services_stopped':True,'requires_fresh_login':True}
 
     def rebuild(self,backup,image=None):
         if backup.exists(): raise ValueError('new_backup_directory_required')
@@ -321,8 +361,8 @@ print(json.dumps({'migrated':True}))
                 or manifest['image']!=self.config['image'] or manifest['source']!=self.config['source']
                 or set(manifest['files'])!={'database.dump','evidence.tar.gz'} or set(manifest['key_fingerprints'])!={'provider','evidence'}):
             raise ValueError('matching_source_backup_required')
+        validate_backup_files(backup)
         for name,value in manifest['files'].items():
-            if (backup/name).stat().st_size>128*1024*1024: raise ValueError('test_backup_restore_limit')
             if digest(backup/name)!=value: raise ValueError('backup_digest_mismatch')
         for name,value in manifest['key_fingerprints'].items():
             if digest(keys/name/'keyring.json')!=value: raise ValueError('original_keys_required')
@@ -363,6 +403,27 @@ def digest(path):
     return value.hexdigest()
 
 
+def validate_backup_files(directory):
+    for name in ('database.dump','evidence.tar.gz'):
+        info=(directory/name).lstat()
+        if not stat.S_ISREG(info.st_mode) or not 0<info.st_size<=MAX_BACKUP_BYTES:
+            raise ValueError('test_backup_file_limit')
+    objects=set();expanded=0
+    try:
+        with tarfile.open(directory/'evidence.tar.gz',mode='r:gz') as archive:
+            for member in archive:
+                if member.name=='.' and member.isdir(): continue
+                if (not member.isfile() or EVIDENCE_MEMBER.fullmatch(member.name) is None
+                        or member.name in objects or not 29<=member.size<=128*1024+28
+                        or len(objects)>=MAX_EVIDENCE_OBJECTS):
+                    raise ValueError('invalid_evidence_archive')
+                objects.add(member.name);expanded+=member.size
+                if expanded>MAX_BACKUP_BYTES: raise ValueError('test_backup_expanded_limit')
+    except tarfile.TarError:
+        raise ValueError('invalid_evidence_archive') from None
+    return {'evidence_objects':len(objects),'expanded_bytes':expanded}
+
+
 def password(args):
     if args.password_file:
         path=Path(args.password_file)
@@ -378,7 +439,7 @@ def password(args):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command',choices=('prepare','initialize','open','status','stop','backup','restore','rebuild','renew-database-tls','diagnose'))
+    parser.add_argument('command',choices=('prepare','initialize','open','status','stop','backup','restore','rebuild','renew-database-tls','renew-toolbus-tls','diagnose'))
     parser.add_argument('directory')
     parser.add_argument('--port',type=int,default=8444)
     parser.add_argument('--image')
@@ -419,6 +480,7 @@ def main():
                 elif args.command=='backup': result=installation.backup(external(args.backup))
                 elif args.command=='rebuild': result=installation.rebuild(external(args.backup),args.image)
                 elif args.command=='renew-database-tls': result=installation.renew_database_tls()
+                elif args.command=='renew-toolbus-tls': result=installation.renew_toolbus_tls()
                 else: result=installation.restore(external(args.backup),external(args.keys_from))
         print(json.dumps({'status':'ok','result':result}))
         return 0

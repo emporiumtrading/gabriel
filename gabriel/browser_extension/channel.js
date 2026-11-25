@@ -217,12 +217,17 @@ async function handle(message) {
         await navigationIdentity(selected.tab_id, selected.page_url, selected.account_label, plan.contract_version);
         await request(session, "heartbeat", {context: wireContext(selected)});
         await current(selected);
-        await capture(selected, session, revision, tour, intent, message.monitorTick === true);
-        if ((await storage.get("pending")).pending?.ai_waiting) break;
+        const receipt=await capture(selected, session, revision, tour, intent, message.monitorTick === true);
         if (discovery) {
           const values=await chrome.scripting.executeScript({target:{tabId:selected.tab_id,documentIds:[selected.document_id]},func:inspectConsole});
           if (values.length!==1 || values[0].documentId!==selected.document_id) throw new Error("Console changed during discovery.");
           const survey=values[0].result;
+          if (receipt) {
+            const orientation=await request(session,"orientation-review",{context:wireContext(selected),observation_id:receipt.observation_id,snapshot:survey});
+            stillCurrent(revision);
+            tour.sections.at(-1).orientation=orientation;
+            await persist({tour},revision);
+          }
           for (const link of survey.links) {
             try {
               readOnlyURL(link);
@@ -232,8 +237,11 @@ async function handle(message) {
           processed++;
           const {monitoring: latest}=await storage.get("monitoring");
           await persist({monitoring:{...latest,queue,cursor:(index+1)%queue.length,interface_title:survey.title,
-            discovery_coverage:survey.coverage,identified_by:survey.identification}},revision);
+            discovery_coverage:survey.coverage,identified_by:survey.identification,
+            orientation_candidate_count:receipt ? tour.sections.at(-1).orientation.read_only_candidate_count : latest.orientation_candidate_count,
+            orientation_evidence_id:receipt ? tour.sections.at(-1).orientation.orientation_evidence_id : latest.orientation_evidence_id}},revision);
         }
+        if ((await storage.get("pending")).pending?.ai_waiting) break;
       }
       if ((await storage.get("pending")).pending?.ai_waiting) {
         tour.state="waiting_for_ai_budget";
@@ -328,8 +336,8 @@ async function waitForDestination(selected, destination, deadline, revision, ver
 
 function publicMonitoring(value) {
   if (!value) return null;
-  const {enabled,state,mode,last_tick,last_checked,last_capture,captures,max_captures,unchanged,error,interface_title,discovery_coverage,candidate_count,review_evidence_id,learning,ai} = value;
-  return {enabled,state,mode,last_tick,last_checked,last_capture,captures,max_captures,unchanged,error,interface_title,discovery_coverage,candidate_count,review_evidence_id,learning,ai,
+  const {enabled,state,mode,last_tick,last_checked,last_capture,captures,max_captures,unchanged,error,interface_title,discovery_coverage,candidate_count,review_evidence_id,orientation_candidate_count,orientation_evidence_id,learning,ai} = value;
+  return {enabled,state,mode,last_tick,last_checked,last_capture,captures,max_captures,unchanged,error,interface_title,discovery_coverage,candidate_count,review_evidence_id,orientation_candidate_count,orientation_evidence_id,learning,ai,
     coverage: "partial", scheduling_gap: Boolean(enabled && Date.now()-last_tick>45000)};
 }
 
@@ -374,7 +382,7 @@ async function capture(selected, session, revision, tour, intent = null, dedupli
           hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(view.content)))).map(x=>x.toString(16).padStart(2,"0")).join("");
           if (monitoring.digests[selected.page_url] === hash) {
             await persist({monitoring: {...monitoring, unchanged: monitoring.unchanged + 1, last_checked: Date.now(), state: "reviewed_unchanged"}}, revision);
-            return;
+            return null;
           }
         }
         const payload = {schema_version: 1, operation: "browser.observe", request_id: crypto.randomUUID(), sequence: session.sequence + 1,
@@ -416,6 +424,7 @@ async function capture(selected, session, revision, tour, intent = null, dedupli
           await persist({monitoring: {...latest, captures: latest.captures + 1, last_checked: Date.now(), last_capture: Date.now(),
             state: latest.ai?.state === "deferred_budget_slot" ? "waiting_for_ai_budget" : "reviewed", digests: {...latest.digests, [selected.page_url]: hash}}}, revision);
         }
+        return receipt;
 
 }
 

@@ -8,6 +8,7 @@ on:
       - 'tooling/scripts/gabriel_install.py'
       - 'tooling/scripts/gabriel_identity_prepare.py'
       - 'tooling/scripts/gabriel_provider_keys.py'
+      - 'tooling/scripts/gabriel_toolbus_prepare.py'
       - 'testing/gabriel_identity/installation_journey.py'
       - 'testing/gabriel_identity/installation_network_journey.py'
       - '.github/workflows/gabriel-installation.yml'

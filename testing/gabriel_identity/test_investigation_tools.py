@@ -95,3 +95,10 @@ def test_parser_output_rejects_unregistered_text_and_raw_identifiers():
     result=tools.minimized('scan_artifacts',dict(status='analyzed',matched_rule_ids=['powershell_encoded_command'],raw='private payload'))
     assert 'private payload' not in json.dumps(result)
     assert tools.minimized('inspect_logs',dict(status='unknown injected state'))=={'status':'analysis_failed'}
+
+
+def test_missing_toolbus_credentials_fail_closed(monkeypatch):
+    monkeypatch.delenv('GABRIEL_TOOLBUS_CA_FILE',raising=False)
+    monkeypatch.delenv('GABRIEL_TOOLBUS_TOKEN_FILE',raising=False)
+    assert tools.remote('inspect_toolkit')==dict(status='tool_unavailable',
+        required_action='check_private_toolbox_service',automatic_installation=False)

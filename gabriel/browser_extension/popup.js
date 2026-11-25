@@ -46,6 +46,7 @@ async function run(operation, extra = {}) {
       byId("monitor-state").textContent = state ? "Scheduled review: "+(state.scheduling_gap ? "coverage gap" : state.state)+
         "; changed captures "+(state.captures || 0)+" of "+(state.max_captures || 8)+(state.last_checked ? "; last checked "+new Date(state.last_checked).toLocaleTimeString() : "")+
         (state.interface_title ? "; interface: "+state.interface_title+" (page-reported)" : "")+(Number.isInteger(state.candidate_count) ? "; latest captured page: "+state.candidate_count+" candidate passages requiring assessment" : "")+
+        (Number.isInteger(state.orientation_candidate_count) ? "; console orientation: "+state.orientation_candidate_count+" read-only page candidates awaiting analyst review" : "")+
         (state.learning ? "; learning: "+state.learning.proposal_state.replaceAll('_',' ')+"; "+state.learning.reviewed_reference_count+" reviewed references attached" : "")+(state.ai ? "; AI: "+state.ai.state.replaceAll("_"," ")+(state.ai.disposition ? " ("+state.ai.disposition+")" : "") : "")+(state.error ? "; "+state.error : "") : "Scheduled review is off.";
     }
     if (result.organization_id) byId("scope").textContent = "Organization " + result.organization_id + "; Case " + result.case_id + "; Task " + result.task_id;

@@ -67,6 +67,10 @@ def public_intent(row,committed=False):
 
 
 class BrowserNavigationService(BrowserObservationService):
+    def review_console_orientation(self,human,peer,context,observation_id,snapshot):
+        from gabriel.identity.console_orientation import process
+        return process(self,human,peer,context,observation_id,snapshot)
+
     def review_browser_text(self,human,peer,context,observation_id):
         from gabriel.identity.browser_text_review import process
         return process(self,human,peer,context,observation_id)
