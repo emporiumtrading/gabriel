@@ -229,14 +229,14 @@ class Workbench:
             result=inspect(self.service,self._token,case_id,fields['input_evidence_id'],parts[0],parts[1],fields['request_id'])
             body='<p>Local tool report saved. No model call was made. Review tool status, coverage and limits before drawing conclusions.</p><p><a href="/cases/'+case_id+'/evidence/'+e(result['report_evidence_id'])+'">Review encrypted tool report</a> · <a href="/cases/'+case_id+'/agents">Back to specialists and tools</a></p>'
             return '200 OK',self._page('Investigation tool report',body,principal),[]
-        hermes_path=re.fullmatch('/cases/('+ID+')/hermes(?:/('+ID+')/(resume|stop))?',path)
+        hermes_path=re.fullmatch('/cases/('+ID+')/(?:hermes|gabriel)(?:/('+ID+')/(resume|stop))?',path)
         if hermes_path:
             from gabriel.identity import hermes_supervisor as hermes
             case_id,run_id,operation=hermes_path.groups()
             if principal.role not in {'owner','admin','analyst'}:raise AccessDenied('operation_not_permitted')
             snapshot=self.service.get_case(self._token,case_id)
-            base='/cases/'+case_id+'/hermes'
-            body='<p>Hermes is Gabriel’s required AI investigation supervisor. It checks readiness, assigns relevant specialists and reports their progress. Each specialist has its own context and tools. Response actions require a separate analyst decision.</p>'
+            base='/cases/'+case_id+'/gabriel'
+            body='<p>Gabriel’s investigation supervisor checks readiness, assigns relevant specialists and reports their progress. Each specialist has its own context and tools. Response actions require a separate analyst decision.</p>'
             state=hermes.readiness()
             body+='<p>Supervisor model: '+e(state['model'])+' · '+e(state['qualification'].replace('_',' '))+'</p>'
             if method=='POST':
@@ -257,13 +257,13 @@ class Workbench:
                         result=hermes.start(self.service,self._provider_vault,self._token,case_id,fields['request_id'],fields['input_evidence_id'],approved=True,**options)
                     else:raise AccessDenied('hermes_ai_export_consent_required')
                 body+='<p id="hermes-result">'+e(result.get('state','Stopped.' if result.get('stopped') else 'Preflight complete.'))+'</p>'
-                for label,key in [('Hermes assignment plan','plan_answer_evidence_id'),('Hermes analyst report','report_answer_evidence_id')]:
+                for label,key in [('Gabriel assignment plan','plan_answer_evidence_id'),('Gabriel analyst report','report_answer_evidence_id')]:
                     if result.get(key):body+='<p><a href="/cases/'+case_id+'/evidence/'+e(result[key])+'">'+label+' — requires review</a></p>'
                 for row in result.get('agents',[]):
                     body+='<h2>'+e(row['role'].replace('_',' '))+'</h2><p>'+e(row['result']['state'].replace('_',' '))+'</p>'
                     for step in row['result'].get('steps',[]):body+='<p><a href="/cases/'+case_id+'/evidence/'+e(step['answer_evidence_id'])+'">Review specialist answer, round '+e(step['round'])+'</a></p>'
             elif method!='GET':raise AccessDenied('workbench_route_denied')
-            body+='<p>Preflight verifies signed-in case access, stored source bytes, current selected-tab reads, required Hermes runtime, tool versions, key availability, spending limits and exact model qualification. Fresh text does not prove complete dashboard visibility. Unsupported or inaccessible dashboards remain blocked.</p>'
+            body+='<p>Preflight verifies signed-in case access, stored source bytes, current selected-tab reads, the required Gabriel supervisor runtime, tool versions, key availability, spending limits and exact model qualification. Fresh text does not prove complete dashboard visibility. Unsupported or inaccessible dashboards remain blocked.</p>'
             body+='<p>The whole investigation shares a six-call limit and one spending allowance. Unfinished work remains visible when a limit is reached. Stop prevents further work; an already sent request may still incur a charge.</p>'
             sources=source_health(self.service,self._token,case_id)['sources']
             owned=[]
@@ -276,12 +276,12 @@ class Workbench:
                 if inputs:
                     tab_options='<option value="local">Local typed evidence only</option>'+''.join('<option value="'+e(v)+'">Selected session '+e(str(i+1))+'</option>' for i,v in enumerate(owned))
                     if 2<=len(owned)<=8:tab_options+='<option value="'+e(','.join(owned))+'">All '+e(len(owned))+' selected sessions in this case</option>'
-                    common='<input type="hidden" name="request_id" value="'+str(uuid4())+'"><label>Typed evidence with source links<select name="input_evidence_id">'+inputs+'</select></label><label>Investigation scope<select name="selected_leases">'+tab_options+'</select></label><label>Hermes model<select name="model"><option>'+e(hermes.DEFAULT_MODEL)+'</option></select></label><label>Specialist model<select name="specialist_model">'+''.join('<option'+(' selected' if m==hermes.DEFAULT_MODEL else '')+'>'+e(m)+'</option>' for m in hermes.model_routes.ROUTES)+'</select></label><label>Key source<select name="key_scope"><option value="personal">My personal key</option>'+('<option value="organization">Organization key</option>' if principal.role in {'owner','admin'} else '')+'</select></label>'
+                    common='<input type="hidden" name="request_id" value="'+str(uuid4())+'"><label>Typed evidence with source links<select name="input_evidence_id">'+inputs+'</select></label><label>Investigation scope<select name="selected_leases">'+tab_options+'</select></label><label>Gabriel model<select name="model"><option>'+e(hermes.DEFAULT_MODEL)+'</option></select></label><label>Specialist model<select name="specialist_model">'+''.join('<option'+(' selected' if m==hermes.DEFAULT_MODEL else '')+'>'+e(m)+'</option>' for m in hermes.model_routes.ROUTES)+'</select></label><label>Key source<select name="key_scope"><option value="personal">My personal key</option>'+('<option value="organization">Organization key</option>' if principal.role in {'owner','admin'} else '')+'</select></label>'
                     body+=self._form(base,'Check readiness',common+'<input type="hidden" name="operation" value="preflight">')
-                    body+=self._form(base,'Start Hermes investigation',common+'<input type="hidden" name="operation" value="start"><label><input type="checkbox" name="approved" value="yes" required>I approve sending the displayed minimized scope and eligible reviewed typed historical references to Hermes and the relevant specialists through my selected key and spending limits. Free-text and performance-test memory are excluded.</label>')
+                    body+=self._form(base,'Start Gabriel investigation',common+'<input type="hidden" name="operation" value="start"><label><input type="checkbox" name="approved" value="yes" required>I approve sending the displayed minimized scope and eligible reviewed typed historical references to Gabriel and the relevant specialists through my selected key and spending limits. Free-text and performance-test memory are excluded.</label>')
             for record in hermes.history(self.service,self._token,case_id):
-                body+='<section><h2>Hermes investigation</h2><p>'+e(record['created_at'])+'</p>'+self._form(base+'/'+record['id']+'/resume','Inspect or resume investigation','')+self._form(base+'/'+record['id']+'/stop','Stop investigation','')+'</section>'
-            return '200 OK',self._page('Hermes investigation supervisor',body,principal),[]
+                body+='<section><h2>Gabriel investigation</h2><p>'+e(record['created_at'])+'</p>'+self._form(base+'/'+record['id']+'/resume','Inspect or resume investigation','')+self._form(base+'/'+record['id']+'/stop','Stop investigation','')+'</section>'
+            return '200 OK',self._page('Gabriel investigation supervisor',body,principal),[]
         agent_path=re.fullmatch('/cases/('+ID+')/agents(?:/('+ID+')/(resume|stop))?',path)
         if agent_path:
             from gabriel.identity import specialist_agents as agents
@@ -315,7 +315,7 @@ class Workbench:
                     body+=table(['Tool','Open-source license','Usage skill'],[(e(n.replace('_',' ')),e(row['license']),e(row['description'])) for n,row in catalog.items()])
                     choices=''.join('<option value="'+role+'/'+name+'">'+e(role.replace('_',' ')+' / '+name.replace('_',' '))+'</option>' for role in ROLES for name in agents.TOOLS[role])
                     body+=self._form('/cases/'+case_id+'/tools','Run local investigation tool','<input type="hidden" name="request_id" value="'+str(uuid4())+'"><label>Specialist and tool<select name="role_tool">'+choices+'</select></label><label>Typed evidence<select name="input_evidence_id">'+options+'</select></label><label><input type="checkbox" name="approved" value="yes" required>Analyze the linked source artifacts and, for memory review, eligible reviewed case or organization references. No model call is made by this local tool.</label>')
-                    body+=self._form(base,'Start specialist agent','<input type="hidden" name="request_id" value="'+str(uuid4())+'"><label>Specialist<select name="role"><option value="all">Hermes: relevant agents</option>'+''.join('<option value="'+role+'">'+e(role.replace('_',' '))+'</option>' for role in ROLES)+'</select></label><label>Typed evidence<select name="input_evidence_id">'+options+'</select></label><label>Model<select name="model">'+''.join('<option value="'+e(m)+'"'+(' selected' if m==agents.DEFAULT_MODEL else '')+'>'+e(m)+'</option>' for m in agents.model_routes.ROUTES)+'</select></label><label>Key source<select name="key_scope"><option value="personal">My personal key</option>'+('<option value="organization">Organization key</option>' if principal.role in {'owner','admin'} else '')+'</select></label><label><input type="checkbox" name="approved" value="yes" required>I approve sending minimized current typed facts, local tool summaries and eligible reviewed typed historical references to this model for this investigation. Free-text and performance-test memory are excluded.</label>')
+                    body+=self._form(base,'Start specialist agent','<input type="hidden" name="request_id" value="'+str(uuid4())+'"><label>Specialist<select name="role"><option value="all">Gabriel: relevant specialists</option>'+''.join('<option value="'+role+'">'+e(role.replace('_',' '))+'</option>' for role in ROLES)+'</select></label><label>Typed evidence<select name="input_evidence_id">'+options+'</select></label><label>Model<select name="model">'+''.join('<option value="'+e(m)+'"'+(' selected' if m==agents.DEFAULT_MODEL else '')+'>'+e(m)+'</option>' for m in agents.model_routes.ROUTES)+'</select></label><label>Key source<select name="key_scope"><option value="personal">My personal key</option>'+('<option value="organization">Organization key</option>' if principal.role in {'owner','admin'} else '')+'</select></label><label><input type="checkbox" name="approved" value="yes" required>I approve sending minimized current typed facts, local tool summaries and eligible reviewed typed historical references to this model for this investigation. Free-text and performance-test memory are excluded.</label>')
             for record in agents.history(self.service,self._token,case_id):
                 body+='<section><h2>'+e(record['role'].replace('_',' '))+'</h2><p>'+e(record['created_at'])+'</p>'+self._form(base+'/'+record['id']+'/resume','Inspect or resume agent','')+self._form(base+'/'+record['id']+'/stop','Stop agent','')+'</section>'
             return '200 OK',self._page('Specialist AI agents',body,principal),[]
@@ -676,7 +676,7 @@ class Workbench:
         if report:
             return '200 OK',json.dumps(result,ensure_ascii=False,allow_nan=False).encode(),[('Content-Type','application/json'),('Content-Disposition','attachment; filename="gabriel-case-'+case_id+'.json"')]
         snapshot=result['snapshot']
-        body='<p class="case-state">State: '+e(snapshot['case']['state'])+' · Coverage: partial · Assessment: not performed</p><p class="case-links"><a href="'+path+'/report">Download metadata report</a> · <a href="'+path+'/relationships">Explore provenance</a> · <a href="'+path+'/coordinator">Local investigation plan</a> · <a href="'+path+'/specialists">Specialist assessments</a> · <a href="'+path+'/hermes">Hermes supervisor</a> · <a href="'+path+'/agents">Specialist AI agents</a> · <a href="'+path+'/memory">Memory review</a></p>'
+        body='<p class="case-state">State: '+e(snapshot['case']['state'])+' · Coverage: partial · Assessment: not performed</p><p class="case-links"><a href="'+path+'/report">Download metadata report</a> · <a href="'+path+'/relationships">Explore provenance</a> · <a href="'+path+'/coordinator">Local investigation plan</a> · <a href="'+path+'/specialists">Specialist assessments</a> · <a href="'+path+'/gabriel">Gabriel supervisor</a> · <a href="'+path+'/agents">Specialist AI agents</a> · <a href="'+path+'/memory">Memory review</a></p>'
         if snapshot['case']['purpose']=='performance_test':body+='<p class="notice">Performance test: learning disabled. Results are evaluation evidence, not training data.</p>'
         body+='<p class="case-links"><a href="'+path+'/attack-reviews">Attack pattern review</a> · <a href="'+path+'/environment">Environment and control profile</a></p>'
         workflow=self.service.case_workflow(self._token,case_id)
@@ -717,7 +717,7 @@ class Workbench:
         status='403 Forbidden'
         body=self._page('Access unavailable','<p>Check your access, scope and ticket expiry with your Gabriel operator.</p>')
         try:
-            slow=environ.get('REQUEST_METHOD')=='POST' and (re.fullmatch('/cases/'+ID+'/agents(?:/'+ID+'/(?:resume|stop))?',environ.get('PATH_INFO','')) or re.fullmatch('/cases/'+ID+'/hermes(?:/'+ID+'/(?:resume|stop))?',environ.get('PATH_INFO','')) or re.fullmatch('/cases/'+ID+'/tools',environ.get('PATH_INFO','')) or environ.get('PATH_INFO') in {'/personal-providers/save','/providers/save'})
+            slow=environ.get('REQUEST_METHOD')=='POST' and (re.fullmatch('/cases/'+ID+'/agents(?:/'+ID+'/(?:resume|stop))?',environ.get('PATH_INFO','')) or re.fullmatch('/cases/'+ID+'/(?:hermes|gabriel)(?:/'+ID+'/(?:resume|stop))?',environ.get('PATH_INFO','')) or re.fullmatch('/cases/'+ID+'/tools',environ.get('PATH_INFO','')) or environ.get('PATH_INFO') in {'/personal-providers/save','/providers/save'})
             with self._lock:
                 now=time.monotonic()
                 if now-self._window>=60: self._window,self._calls=now,0
@@ -779,3 +779,4 @@ def serve_workbench(configuration,certificate,key,bind='127.0.0.1:8444'):
                 self.cfg.set(name,value)
         def load(self): return load_workbench(configuration)
     Application().run()
+
