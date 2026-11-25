@@ -23,25 +23,29 @@ services:
     security_opt:
       - seccomp:unconfined
     ports:
-      - "8000:8000"  # network_recon MCP server (curl + naabu)
-      - "8002:8002"  # nuclei MCP server
-      - "8003:8003"  # metasploit MCP server
-      - "8004:8004"  # nmap MCP server
-      - "8005:8005"  # playwright MCP server
-      - "8013:8013"  # metasploit progress HTTP endpoint
+      # Tool and progress endpoints are host-debug surfaces, never LAN services.
+      - "127.0.0.1:8000:8000"  # network_recon MCP server (curl + naabu)
+      - "127.0.0.1:8002:8002"  # nuclei MCP server
+      - "127.0.0.1:8003:8003"  # metasploit MCP server
+      - "127.0.0.1:8004:8004"  # nmap MCP server
+      - "127.0.0.1:8005:8005"  # playwright MCP server
+      - "127.0.0.1:8013:8013"  # metasploit progress HTTP endpoint
       - "4444:4444"  # Metasploit reverse shell listener
     volumes:
       # Mount servers directory for development (hot reload)
-      - ./servers:/opt/mcp_servers
+      - ./servers:/opt/mcp_servers:ro
       # Output directory for scan results
       - ./output:/opt/output
       # Nuclei templates (optional, for custom templates)
       - ./nuclei-templates:/opt/nuclei-templates:ro
     environment:
       - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
       # MCP settings
       - MCP_TRANSPORT=sse
       - MCP_HOST=0.0.0.0
+      # _auth_middleware.py fails closed when this is missing.
+      - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN:?MCP_AUTH_TOKEN must be set}
       # Server ports
       - NETWORK_RECON_PORT=8000
       - NUCLEI_PORT=8002
