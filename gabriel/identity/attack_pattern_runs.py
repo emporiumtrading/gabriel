@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from psycopg.types.json import Jsonb
 
-from gabriel.identity.attack_patterns import VERSION,ALTERNATIVES,investigate,normalized
+from gabriel.identity.attack_patterns import VERSION,SUPPORTED_VERSIONS,ALTERNATIVES,investigate,normalized
 from gabriel.identity.cases import iso,timestamp
 from gabriel.identity.evidence_store import canonical
 from gabriel.identity.model_protocol import decode
@@ -21,6 +21,8 @@ RULES={
     'same-process-multisource-spread-in-300s':'worm_propagation',
     'bulk-file-change-with-ransom-or-backup-indicator':'ransomware',
     'reported-kernel-or-boot-integrity-violation':'possible_rootkit',
+    'authorized-assessment-sequence-300s':'authorized_pentest_activity',
+    'novel-process-exploit-like-chain-300s':'possible_zero_day_activity',
 }
 GAPS={'authentication','process','network','file','kernel','boot'}
 
@@ -49,7 +51,7 @@ def validate(packet,result):
     require(admitted.get('evidence/'+packet['input_evidence_id'])==packet['input_digest'],'attack_input_binding_failed')
     require(type(result) is dict and set(result)=={'version','findings','unique_event_count','forwarded_duplicate_count','coverage',
         'missing_sources','source_authenticity','quality_qualified','live_detection_accepted','external_actions_authorized','limitations'}
-        and result['version']==VERSION and result['coverage']=='partial' and result['source_authenticity']=='unverified'
+        and result['version'] in SUPPORTED_VERSIONS and result['coverage']=='partial' and result['source_authenticity']=='unverified'
         and all(result[key] is False for key in ('quality_qualified','live_detection_accepted','external_actions_authorized')),'invalid_attack_result')
     require(type(result['unique_event_count']) is int and 1<=result['unique_event_count']<=256
         and type(result['forwarded_duplicate_count']) is int and result['forwarded_duplicate_count']>=0
@@ -73,17 +75,21 @@ def validate(packet,result):
         require(type(finding['references']) is list and 1<=len(finding['references'])<=32
             and all(type(ref) is str and ref in admitted and ref!='evidence/'+packet['input_evidence_id'] for ref in finding['references'])
             and len(set(finding['references']))==len(finding['references']),'invalid_attack_finding_reference')
-    require(result['limitations']==[
+    legacy_limitations=[
         'Candidate thresholds require independent evaluation; unmatched activity is not a benign verdict.',
         'Only supplied typed events are examined; collection, normalization and current visibility are unverified.',
-        'No console observation, model invocation, page navigation or response execution occurs in this kernel.'],'invalid_attack_limitations')
+        'No console observation, model invocation, page navigation or response execution occurs in this kernel.']
+    current_limitations=legacy_limitations+[
+        'Novelty is a source-reported signal; this result cannot establish a zero-day, exploitability, attribution or compromise.']
+    require(result['limitations'] in (legacy_limitations,current_limitations),'invalid_attack_limitations')
     require(len(canonical(packet))<=65536 and len(canonical(result))<=131072,'attack_record_limit')
 
 
 def public(row):
     packet,result=row['packet'],row['result']
     validate(packet,result)
-    if (digest(packet)!=row['packet_digest'] or digest(result)!=row['result_digest'] or row['engine_version']!=VERSION
+    if (digest(packet)!=row['packet_digest'] or digest(result)!=row['result_digest'] or row['engine_version'] not in SUPPORTED_VERSIONS
+            or result['version']!=row['engine_version']
             or packet['organization_id']!=str(row['organization_id']) or packet['case_id']!=str(row['case_id'])
             or packet['input_evidence_id']!=str(row['input_evidence_id'])):
         raise AccessDenied('attack_record_integrity_failed')
@@ -155,3 +161,4 @@ def history(service,token,case_id):
         rows=conn.execute('SELECT id,created_at FROM gabriel_identity.attack_pattern_runs WHERE organization_id=%s AND case_id=%s ORDER BY created_at DESC,id DESC LIMIT 33',
             (p.organization_id,case['id'])).fetchall()
         return dict(runs=[dict(id=str(row['id']),created_at=iso(row['created_at'])) for row in rows[:32]],truncated=len(rows)>32,limit=32)
+
