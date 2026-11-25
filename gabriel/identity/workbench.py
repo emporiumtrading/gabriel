@@ -293,7 +293,6 @@ class Workbench:
             case_id,job_id,operation=agent_path.groups()
             if principal.role not in {'owner','admin','analyst'}:raise AccessDenied('operation_not_permitted')
             base='/cases/'+case_id+'/agents'
-            snapshot=self.service.get_case(self._token,case_id)
             body='<p>Each specialist is a designated AI agent with a role-specific prompt, source-linked results and an allowlist of local read tools. Agents may investigate within three reasoning rounds; response actions remain separate.</p>'
             if method=='POST':
                 if self._provider_vault is None:raise AccessDenied('provider_vault_not_configured')
@@ -309,6 +308,11 @@ class Workbench:
                 for step in result.get('steps',[]):
                     body+='<p>Round '+e(step['round'])+' · '+e(step['disposition'])+' · <a href="/cases/'+case_id+'/evidence/'+e(step['answer_evidence_id'])+'">Review unreviewed AI answer</a></p>'
             elif method!='GET':raise AccessDenied('workbench_route_denied')
+            # Do not lock/read the case before dispatching a slow specialist
+            # request.  The specialist operation performs its own case/job
+            # authorization; taking the case snapshot first could delay the
+            # provider boundary and make Stop compete with startup I/O.
+            snapshot=self.service.get_case(self._token,case_id)
             statuses=[agents.readiness(role) for role in ROLES]
             body+=table(['Agent','AI configuration','Local read tools'],[(e(x['role'].replace('_',' ')),e(x['qualification'].replace('_',' ')),e(', '.join(x['tools']))) for x in statuses])
             body+='<p>Packaged open-source tools and their skills are available for local evidence analysis without an AI key. Parser availability is checked on use. Tool failures and unsupported formats remain explicit; missing tools are never silently installed.</p>'
@@ -783,3 +787,4 @@ def serve_workbench(configuration,certificate,key,bind='127.0.0.1:8444'):
                 self.cfg.set(name,value)
         def load(self): return load_workbench(configuration)
     Application().run()
+
