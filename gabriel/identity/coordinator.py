@@ -318,3 +318,41 @@ def complete(service,token,run_id):
         if value['status']!='pending_local_steps': return value
         advance(service,token,run_id,expected_sequence=value['completed_steps']+1)
     return get(service,token,run_id)
+
+
+def collaborate(service,token,run_id):
+    """Return a deterministic cross-specialist receipt after all twelve roles complete."""
+    from gabriel.identity.specialist_collaboration import synthesize
+    from gabriel.identity.specialists import public_run
+    with connection(service._dsn) as conn:
+        p=service._human(conn,token)
+        row=load(conn,p,run_id)
+        service._case(conn,p,row['case_id'])
+        if row['plan_version']!=SPECIALIST_PLAN:
+            raise AccessDenied('specialist_collaboration_requires_twelve_plan')
+        current=snapshot(conn,row)
+        if current['completed_steps']!=row['max_steps']:
+            raise AccessDenied('coordinator_not_complete')
+        records=[]
+        run_ids=[]
+        for step in current['steps']:
+            receipt=step['result']
+            if not isinstance(receipt,dict) or not receipt.get('specialist_id'):
+                raise AccessDenied('specialist_collaboration_receipt_missing')
+            specialist=conn.execute('''SELECT * FROM gabriel_identity.specialist_runs
+                WHERE organization_id=%s AND case_id=%s AND id=%s''',
+                (p.organization_id,row['case_id'],identifier(receipt['specialist_id']))).fetchone()
+            if not specialist:
+                raise AccessDenied('specialist_collaboration_run_missing')
+            value=public_run(specialist)
+            if value['role']!=step['operation'] or value['packet'].get('input_evidence_id')!=str(row['input_evidence_id']):
+                raise AccessDenied('specialist_collaboration_binding_failed')
+            if value['result_digest']!=receipt.get('specialist_result_digest'):
+                raise AccessDenied('specialist_collaboration_digest_failed')
+            records.append(dict(role=value['role'],result=value['result']))
+            run_ids.append(value['id'])
+        result=synthesize(records)
+        result.update(plan_id=str(row['id']),case_id=str(row['case_id']),specialist_run_ids=run_ids,
+                      source_digest=row['source_digest'],grants_authority=False)
+        _audit(conn,'coordinator.cross_specialist_synthesis_read',p,row['id'])
+        return result
