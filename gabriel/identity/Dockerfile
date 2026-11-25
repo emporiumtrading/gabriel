@@ -57,11 +57,12 @@ ENTRYPOINT ["python", "-m", "gabriel.identity.cli"]
 
 FROM runtime AS test
 USER 0:0
-RUN pip install --no-cache-dir pytest==8.3.5 pytest-cov==6.0.0 pytest-asyncio==0.25.3
+RUN apk add --no-cache openssl \
+    && pip install --no-cache-dir pytest==8.3.5 pytest-cov==6.0.0 pytest-asyncio==0.25.3
 ENV PYTHONPATH=/app:/repo
 WORKDIR /repo
 COPY conftest.py pytest.ini /repo/
-COPY tooling/scripts/pytest_isolated.py tooling/scripts/gabriel_identity_prepare.py tooling/scripts/gabriel_provider_keys.py tooling/scripts/gabriel_evidence_keys.py tooling/scripts/gabriel_toolbus_prepare.py /repo/tooling/scripts/
+COPY tooling/scripts/pytest_isolated.py tooling/scripts/gabriel_install.py tooling/scripts/gabriel_identity_prepare.py tooling/scripts/gabriel_provider_keys.py tooling/scripts/gabriel_evidence_keys.py tooling/scripts/gabriel_toolbus_prepare.py /repo/tooling/scripts/
 COPY testing/gabriel_identity/ /repo/testing/gabriel_identity/
 COPY testing/gabriel_model_lab/ /repo/testing/gabriel_model_lab/
 COPY gabriel/browser_extension/ /repo/gabriel/browser_extension/
