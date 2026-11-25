@@ -102,6 +102,48 @@ def test_ransomware_requires_distinct_files_and_correlated_marker():
     assert not families(doc)
 
 
+def test_authorized_pentest_sequence_is_detected_without_executing_anything():
+    ids,doc,event=fixture()
+    event('reconnaissance',0)
+    event('vulnerability_probe',10)
+    event('exploit_attempt',20)
+    result=investigate(doc,ids['case'])
+    assert families(doc)=={'authorized_pentest_activity'}
+    finding=result['findings'][0]
+    assert finding['rule_id']=='authorized-assessment-sequence-300s'
+    assert finding['alternative'].startswith('An approved red-team exercise')
+    assert result['external_actions_authorized'] is False
+
+
+def test_pentest_sequence_does_not_match_without_discovery_and_probe():
+    ids,doc,event=fixture()
+    event('exploit_attempt',0)
+    event('payload_execution',10)
+    assert not families(doc)
+
+
+def test_novel_exploit_like_chain_is_review_candidate_not_zero_day_verdict():
+    ids,doc,event=fixture()
+    process='c'*64
+    event('novel_process_behavior',0,process_sha256=process)
+    event('memory_execution',10,process_sha256=process)
+    event('privilege_change',20,process_sha256=process)
+    result=investigate(doc,ids['case'])
+    assert families(doc)=={'possible_zero_day_activity'}
+    finding=result['findings'][0]
+    assert finding['rule_id']=='novel-process-exploit-like-chain-300s'
+    assert finding['status']=='suspected_requires_review'
+    assert result['quality_qualified'] is False and result['live_detection_accepted'] is False
+    assert any('cannot establish a zero-day' in item for item in result['limitations'])
+
+
+def test_novel_process_alone_is_not_called_zero_day_activity():
+    ids,doc,event=fixture()
+    event('novel_process_behavior',0,process_sha256='d'*64)
+    event('network_connection',10,process_sha256='d'*64)
+    assert not families(doc)
+
+
 @pytest.mark.parametrize('kind',['kernel_integrity_violation','boot_integrity_violation'])
 def test_integrity_indicator_reports_possible_rootkit_not_diagnosis(kind):
     ids,doc,event=fixture();event(kind)
@@ -129,3 +171,4 @@ def test_missing_sources_remain_explicit_even_when_no_candidate_matches():
     result=investigate(doc,ids['case'])
     assert doc==before and result['missing_sources']==['kernel','boot'] and result['coverage']=='partial'
     assert not result['findings'] and not result['quality_qualified']
+
