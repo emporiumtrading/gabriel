@@ -10,8 +10,17 @@ from gabriel.identity.evidence_store import canonical
 from gabriel.identity.specialist_analysis import at,require,uid
 
 VERSION='attack-pattern-candidates-v1'
+# The persisted schema currently admits this identifier. New behavior remains
+# schema-compatible so existing installations and historical reviews survive.
+SUPPORTED_VERSIONS={VERSION}
 KINDS={'auth_failure','auth_success','remote_execution','file_write','file_rename',
-       'ransom_note','backup_disabled','kernel_integrity_violation','boot_integrity_violation'}
+       'ransom_note','backup_disabled','kernel_integrity_violation','boot_integrity_violation',
+       # Defensive assertions from an authorized sensor or assessment harness. These
+       # are observations only; the engine never generates or sends any payload.
+       'reconnaissance','vulnerability_probe','exploit_attempt','payload_execution',
+       'process_start','script_execution','network_connection','privilege_change',
+       'secret_access','persistence_change','memory_execution','security_control_tamper',
+       'novel_process_behavior'}
 FIELDS={'source_id','event_id','evidence_id','evidence_digest','event_time','kind','actor_id',
         'asset_id','source_asset_id','process_sha256','object_id','authorization'}
 ALTERNATIVES={
@@ -22,6 +31,8 @@ ALTERNATIVES={
     'ransomware':'Bulk maintenance or backup testing can resemble file-change and backup-interference patterns.',
     'lateral_movement':'Approved remote administration can connect the same account across hosts.',
     'possible_rootkit':'An approved kernel/boot update or sensor fault can produce integrity findings.',
+    'authorized_pentest_activity':'An approved red-team exercise, scanner or QA workflow can produce the same sequence.',
+    'possible_zero_day_activity':'A new release, parser error, sensor fault or benign automation can produce this chain; event correlation cannot establish a zero-day or exploitability.',
 }
 
 
@@ -149,6 +160,39 @@ def investigate(document,case_id):
         add('bulk-file-change-with-ransom-or-backup-indicator','ransomware',best(candidates))
     for rows in groups([r for r in candidate_events if r['kind'] in {'kernel_integrity_violation','boot_integrity_violation'}],lambda r:r['asset_id']):
         add('reported-kernel-or-boot-integrity-violation','possible_rootkit',rows)
+
+    # Detect the shape of an authorized penetration test without performing one.
+    # A single reported probe is not enough; the sequence must contain discovery,
+    # a vulnerability probe, and an exploit/payload assertion in one bounded scope.
+    assessment=[r for r in candidate_events if r['kind'] in
+                {'reconnaissance','vulnerability_probe','exploit_attempt','payload_execution'}]
+    for rows in groups(assessment,lambda r:(r['source_asset_id'],r['asset_id'])
+                       if r['source_asset_id'] is not None else None):
+        candidates=[]
+        for window in windows(rows,300):
+            kinds={r['kind'] for r in window}
+            if {'reconnaissance','vulnerability_probe'} <= kinds and kinds & {'exploit_attempt','payload_execution'}:
+                candidates.append(window)
+        add('authorized-assessment-sequence-300s','authorized_pentest_activity',best(candidates))
+
+    # Zero-day-like activity is deliberately framed as a novel behavior chain,
+    # never as proof of a zero-day. The novelty assertion must come from the
+    # supplied source and must correlate with at least two post-exploitation
+    # behaviors for the same asset/process in five minutes.
+    novel_companions={'memory_execution','privilege_change','secret_access','persistence_change',
+                      'network_connection','security_control_tamper','script_execution',
+                      'remote_execution','exploit_attempt','payload_execution'}
+    zero_day_rows=[r for r in candidate_events if r['process_sha256'] is not None and
+                   r['kind'] in ({'novel_process_behavior'} | novel_companions)]
+    for rows in groups(zero_day_rows,lambda r:(r['asset_id'],r['process_sha256'])):
+        candidates=[]
+        for window in windows(rows,300):
+            kinds={r['kind'] for r in window}
+            companions=kinds & novel_companions
+            if 'novel_process_behavior' in kinds and len(companions)>=2:
+                candidates.append(window)
+        add('novel-process-exploit-like-chain-300s','possible_zero_day_activity',best(candidates))
+
     require(len(findings)<=128,'security_finding_limit_requires_narrower_scope')
     return dict(version=VERSION,findings=findings,unique_event_count=len(events),
         forwarded_duplicate_count=len(document['events'])-len(events),coverage='partial',
@@ -156,4 +200,6 @@ def investigate(document,case_id):
         quality_qualified=False,live_detection_accepted=False,external_actions_authorized=False,
         limitations=['Candidate thresholds require independent evaluation; unmatched activity is not a benign verdict.',
                      'Only supplied typed events are examined; collection, normalization and current visibility are unverified.',
-                     'No console observation, model invocation, page navigation or response execution occurs in this kernel.'])
+                     'No console observation, model invocation, page navigation or response execution occurs in this kernel.',
+                     'Novelty is a source-reported signal; this result cannot establish a zero-day, exploitability, attribution or compromise.'])
+
