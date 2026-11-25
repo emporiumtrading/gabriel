@@ -21,7 +21,7 @@ RUN apk add --no-cache build-base curl \
 FROM python@sha256:9ef1a599f863231c3d91e941389bfdc4a2d6070557243d54df1a4e57015b960e
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_DISABLE_PIP_VERSION_CHECK=1 HOME=/tmp HERMES_HOME=/tmp HERMES_DISABLE_LAZY_INSTALLS=1
 RUN apk upgrade --no-cache \
-    && apk del --no-network sqlite-libs
+    && rm -f /usr/lib/libsqlite3.so /usr/lib/libsqlite3.so.0 /usr/lib/libsqlite3.so.3.53.4
 COPY --from=sqlite-build /opt/sqlite-fixed/lib/libsqlite3.so* /usr/lib/
 COPY --from=upstream /payload/hermes /opt/hermes
 COPY --from=upstream /payload/requirements.lock /opt/gabriel-hermes/requirements.lock
@@ -29,7 +29,9 @@ COPY --from=upstream /payload/image-provenance.json /etc/hermes/image-provenance
 RUN python -m venv /opt/hermes/.venv \
     && /opt/hermes/.venv/bin/pip install --no-cache-dir --no-deps --no-compile -r /opt/gabriel-hermes/requirements.lock \
     && /opt/hermes/.venv/bin/pip check \
-    && /opt/hermes/.venv/bin/python -c "import sqlite3; assert sqlite3.sqlite_version == '3.54.1'"
+    && /opt/hermes/.venv/bin/python -c "import sqlite3; assert sqlite3.sqlite_version == '3.54.1'" \
+    && test ! -e /usr/lib/libsqlite3.so.3.53.4 \
+    && ! command -v sqlite3
 COPY gabriel/hermes/runtime.py gabriel/hermes/server.py gabriel/hermes/prepare_runtime.py gabriel/hermes/Dockerfile /opt/gabriel-hermes/
 USER 10001:10001
 WORKDIR /opt/gabriel-hermes
