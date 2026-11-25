@@ -16,6 +16,8 @@ response. Its results are candidate hypotheses for review, never confirmations.
 | Lateral movement | An ordered remote-execution chain across assets under the same supplied identity, with matching preceding authentication successes |
 | Ransomware | At least twenty distinct file-object changes in one minute, correlated with a ransom-note or backup-interference indicator |
 | Possible rootkit | A reported kernel or boot integrity violation requiring specialized validation |
+| Authorized assessment sequence | Reconnaissance plus vulnerability probing plus an exploit/payload assertion in one source/asset scope within five minutes |
+| Possible zero-day activity | A source-reported novel process plus at least two exploit-like behaviors for the same asset/process hash within five minutes; this is not proof of a zero-day |
 
 Thresholds and semantics are provisional development choices. They require
 independent attack/benign/visibility evaluation before admission. Low-and-slow
@@ -38,6 +40,12 @@ the pure kernel itself provides neither. The accepted product path must connect 
 capture, normalization, correlation, specialist assessment, urgent presentation
 and measured end-to-end latency.
 
+The authorized-assessment and novel-process paths are defensive recognition
+only. They do not run scanners, exploit attempts, payloads, containment or
+external response. Novelty is a source-reported assertion; a new release,
+approved test, parser error or sensor fault can produce the same shape. A
+no-match result is never a clean verdict.
+
 New generated-event tests exercise seeded patterns, overlapping windows,
 forwarded duplicates, slow failures, missing identity bindings, unrelated remote
 activity, bulk-file lookalikes, marker correlation, source/time/field conflicts
@@ -46,3 +54,4 @@ real-console compatibility, human usefulness or detection-quality acceptance.
 
 The [assigned-section browser executor](GABRIEL_BROWSER_INVESTIGATION_EXECUTOR.md)
 defines the required autonomous navigation journey and the Playwright boundary.
+
