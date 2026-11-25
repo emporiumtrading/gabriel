@@ -37,6 +37,7 @@ The interface uses Gabriel's own halo and winged-shield emblem, midnight-blue su
 | Specialists | Twelve designated AI-agent roles with bounded read-tool loops and personal analyst keys; exact model activation awaits qualification. Local-rule reviews remain available. |
 | AI triage connection | Budgeted browser-to-model application bridge, minimized candidate signals and encrypted answers; production activation awaits qualification |
 | Pentest and novel-behavior detection | Evidence-bound candidate correlations for authorized assessment sequences and novel exploit-like behavior; results remain unqualified hypotheses and never execute payloads |
+| Cross-specialist investigation | All twelve roles can run against one bounded evidence set and produce a linked synthesis with handoffs, disagreements and visibility gaps preserved |
 | Organizational knowledge | Automatic browser proposals, human review, approved-reference context in later reviews, expiry and forgetting controls |
 | Operations | Owner enrollment, role-scoped access, audit history, spending controls and tested backup/restore paths |
 
