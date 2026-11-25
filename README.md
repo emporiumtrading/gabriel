@@ -2,7 +2,11 @@
 
 # Gabriel — The Defender
 
-Gabriel is a defensive investigation workbench for security analysts. It brings cases, encrypted evidence, browser observations, specialist assessments and reviewed organizational knowledge into one workspace.
+**When the alerts stack up and the evidence is scattered, Gabriel helps your team find the signal.**
+
+Gabriel is an AI-assisted blue-team investigation workbench built for security analysts—especially lean teams that need more hands on the investigation without losing human control. It brings cases, encrypted evidence, browser observations and coordinated specialist assessments into one workspace, helping analysts connect the dots, understand what changed and decide what to do next.
+
+Gabriel supports the analyst; the analyst stays in command. Its detection and investigation workflows are designed to surface evidence-backed leads for human review, not to execute exploit payloads or launch autonomous offensive actions.
 
 The interface uses Gabriel's own halo and winged-shield emblem, midnight-blue surfaces, pearl text and warm gold accents. Product graphics are maintained in [the Gabriel brand directory](docs/assets/gabriel/), with a described [photo gallery](docs/assets/gabriel/PHOTO_GALLERY.md) covering the workbench and investigation workflow.
 
@@ -70,5 +74,3 @@ See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), [the operati
 ## License and provenance
 
 See [LICENSE](LICENSE) and [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md). Upstream copyright and third-party notices remain intact. Gabriel's defensive behavior and release status are documented independently of inherited components.
-
-
