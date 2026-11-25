@@ -38,7 +38,7 @@ COPY gabriel/identity/memory.py gabriel/identity/schema_v15.sql /app/gabriel/ide
 COPY gabriel/identity/model_evaluation.py gabriel/identity/model_protocol.py gabriel/identity/model_routes.py gabriel/identity/model_transport.py gabriel/identity/model_worker.py /app/gabriel/identity/
 COPY gabriel/identity/model_input.py /app/gabriel/identity/
 COPY gabriel/identity/attack_patterns.py /app/gabriel/identity/
-COPY gabriel/identity/wazuh_events.py /app/gabriel/identity/
+COPY gabriel/identity/wazuh_events.py gabriel/identity/source_events.py gabriel/identity/console_orientation.py /app/gabriel/identity/
 COPY gabriel/identity/attack_pattern_runs.py gabriel/identity/schema_v23.sql /app/gabriel/identity/
 COPY gabriel/identity/browser_events.py gabriel/identity/browser_specialists.py gabriel/identity/schema_v24.sql gabriel/identity/schema_v26.sql /app/gabriel/identity/
 COPY gabriel/identity/specialist_analysis_runs.py gabriel/identity/schema_v20.sql /app/gabriel/identity/
@@ -48,7 +48,9 @@ COPY gabriel/identity/coordinator.py gabriel/identity/schema_v17.sql gabriel/ide
 COPY gabriel/identity/model_budget.py gabriel/identity/budget_cli.py gabriel/identity/schema_v16.sql /app/gabriel/identity/
 RUN python -c "import ast,pathlib; [ast.parse(p.read_text(),filename=str(p)) for p in pathlib.Path('/app/gabriel').rglob('*.py')]"
 COPY gabriel/toolbox/ /app/gabriel/toolbox/
-COPY gabriel/identity/investigation_tools.py gabriel/identity/grounded_skills.py gabriel/identity/reviewed_memory.py gabriel/identity/skill_catalog.py gabriel/identity/catalog_skills.py gabriel/identity/catalog_dfir.py gabriel/identity/catalog_detection.py gabriel/identity/catalog_telemetry.py gabriel/identity/catalog_intelligence.py gabriel/identity/catalog_exposure.py gabriel/identity/catalog_cloud.py gabriel/identity/catalog_timeline.py gabriel/identity/catalog_hunting.py gabriel/identity/catalog_recovery.py gabriel/identity/skill_roadmap.json /app/gabriel/identity/
+COPY gabriel/identity/investigation_tools.py gabriel/identity/grounded_skills.py gabriel/identity/reviewed_memory.py gabriel/identity/skill_catalog.py gabriel/identity/catalog_skills.py gabriel/identity/catalog_dfir.py gabriel/identity/catalog_dfir_artifacts.py gabriel/identity/dfir_bounded_parsers.py gabriel/identity/catalog_detection.py gabriel/identity/catalog_detection_sources.py gabriel/identity/catalog_identity.py gabriel/identity/catalog_identity_extended.py gabriel/identity/catalog_scope.py gabriel/identity/catalog_scope_extended.py gabriel/identity/catalog_hardening.py gabriel/identity/catalog_telemetry.py gabriel/identity/catalog_telemetry_triage.py gabriel/identity/catalog_telemetry_triage_manifest.json gabriel/identity/catalog_intelligence.py gabriel/identity/catalog_intel_hunt.py gabriel/identity/catalog_exposure.py gabriel/identity/catalog_exposure_cloud_extended.py gabriel/identity/catalog_cloud.py gabriel/identity/catalog_timeline.py gabriel/identity/catalog_hunting.py gabriel/identity/catalog_recovery.py gabriel/identity/catalog_response_recovery.py gabriel/identity/skill_roadmap.json gabriel/identity/catalog_exposure_cloud_manifest.json gabriel/identity/catalog_response_recovery.integration.json /app/gabriel/identity/
+COPY gabriel/identity/catalog_fragments/ /app/gabriel/identity/catalog_fragments/
+COPY gabriel/identity/catalog_integration/ /app/gabriel/identity/catalog_integration/
 COPY gabriel/identity/investigation_skills/ /app/gabriel/identity/investigation_skills/
 USER 10001:10001
 ENTRYPOINT ["python", "-m", "gabriel.identity.cli"]
