@@ -4,7 +4,7 @@
 
 Gabriel is a defensive investigation workbench for security analysts. It brings cases, encrypted evidence, browser observations, specialist assessments and reviewed organizational knowledge into one workspace.
 
-The interface uses Gabriel's own halo and winged-shield emblem, midnight-blue surfaces, pearl text and warm gold accents. Product graphics are maintained in [the Gabriel brand directory](docs/assets/gabriel/).
+The interface uses Gabriel's own halo and winged-shield emblem, midnight-blue surfaces, pearl text and warm gold accents. Product graphics are maintained in [the Gabriel brand directory](docs/assets/gabriel/), with a described [photo gallery](docs/assets/gabriel/PHOTO_GALLERY.md) covering the workbench and investigation workflow.
 
 ## Inside Gabriel
 
