@@ -9,31 +9,43 @@
     {
       "file": "investigations.png",
       "title": "Investigation queue",
+      "stage": "2-investigation",
+      "description": "Cases and investigation assignments waiting for analyst review.",
       "sha256": "08ca6b147c2161b97ec6d4083ad37da47d0da165b0eea6bab7a9d16d000e671f"
     },
     {
       "file": "case-workspace.png",
       "title": "Case workspace",
+      "stage": "2-investigation",
+      "description": "Evidence, timeline, questions and provenance in one case view.",
       "sha256": "7585bdf000bed9b6e142090b48d281a002a647c7f0eecd161cd953e143128e3a"
     },
     {
       "file": "specialist-assessments.png",
       "title": "Specialist assessments",
+      "stage": "3-specialist-analysis",
+      "description": "Bounded specialist findings with confidence and review status.",
       "sha256": "545b0b7bf12e22012c12d2ddb41499fc7fbc4fc208444f68b4f9370dd61ab39c"
     },
     {
       "file": "spending-controls.png",
       "title": "Spending controls",
+      "stage": "5-governance-response",
+      "description": "Provider budgets, model-routing controls and cost guardrails.",
       "sha256": "ef289cc13e1adfd41695256e5da701669832c0f4688f2bdaae8e62c20b9afe6d"
     },
     {
       "file": "case-provenance.png",
       "title": "Case provenance",
+      "stage": "4-evidence-learning",
+      "description": "Evidence trail showing source, custody and review metadata.",
       "sha256": "7a2b10423ad2a2d26c0b9d679b747a3e4f675a6856448e14f8bb1005ccec9d67"
     },
     {
       "file": "mobile-case.png",
       "title": "Mobile layout",
+      "stage": "6-mobile-review",
+      "description": "Responsive case-review layout for a smaller screen.",
       "sha256": "2288b1511aabd51ed1d0af950f4f29cb0b04a4a27a7a716c822f64f2ef96c7a4"
     }
   ]
