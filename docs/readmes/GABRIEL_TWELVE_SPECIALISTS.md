@@ -60,12 +60,23 @@ two-step local plan; full specialist scheduling/disagreement handling is open.
 
 The owner explicitly requires evidence-based recognition of brute force,
 credential/password misuse, worm propagation, ransomware, lateral movement and
-possible rootkits as Gabriel investigates approved pages/tabs. The current
-metadata/typed-fact kernels do not fulfill that requirement. Finish actual
-browser adapters, deduplication/entity/event correlation, attack-pattern and
-hunt evaluation, bounded ongoing observation, urgent presentation and timestamped
-latency measurements. Test multiple attack scales, benign lookalikes, partial
-pages, stale/late events, source loss and hostile page instructions.
+possible rootkits as Gabriel investigates approved pages/tabs. The bounded
+attack-pattern kernel now also recognizes an authorized assessment sequence
+(reconnaissance plus vulnerability probing plus an exploit/payload assertion)
+and a source-reported novel-process chain with two or more exploit-like
+behaviors. These are candidate findings only: they remain unqualified,
+source-authenticity is unverified, and no payload or response action is run.
+
+This does not prove a zero-day exists. A novel-process finding means that a
+source reported an unusual process and that the supplied evidence correlated it
+with behaviors such as memory execution, privilege change, secret access,
+persistence, control tampering or network activity. New releases, sensor faults,
+approved testing and benign automation can look identical. Finish actual browser
+and console adapters, deduplication/entity/event correlation, independent
+evaluation, bounded ongoing observation, urgent presentation and timestamped
+latency measurements before describing this as live detection. Test multiple
+attack scales, benign lookalikes, partial pages, stale/late events, source loss
+and hostile page instructions.
 
 Measure event time, console availability time, approved capture time, assessment
 time and analyst presentation time separately. Publish observed latency and
@@ -83,3 +94,4 @@ coordinated database/evidence restore. Test-only historical reconstruction delet
 new generated reviews to reproduce the actual older schema; it is never an
 operator rollback procedure. Configurable full metadata/backup erasure remains
 an open product lifecycle requirement.
+
