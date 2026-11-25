@@ -2,7 +2,7 @@
 from uuid import uuid4
 
 from gabriel.identity.provider_onboarding import funding
-from gabriel.identity.model_transport import OpenRouterTransport
+from gabriel.identity.model_transport import DeepInfraTransport,OpenRouterTransport
 from gabriel.identity.service import AccessDenied,_audit,connection
 from gabriel.identity.vault import ProviderVault,ProviderCredential,_secret
 
@@ -19,13 +19,21 @@ class PersonalProviders:
         return p
 
     def configure(self,token,provider,value):
-        if provider!='openrouter':raise AccessDenied('personal_provider_not_supported')
+        if provider not in {'openrouter','deepinfra'}:raise AccessDenied('personal_provider_not_supported')
         value=_secret(value)
         with connection(self.vault._dsn) as conn:
             p=self.principal(conn,token)
             _audit(conn,'personal_provider.validation_started',p)
-        client=OpenRouterTransport(ProviderCredential(value))
-        funding(client.request('GET','/api/v1/key'),client.request('GET','/api/v1/credits'))
+        if provider=='openrouter':
+            client=OpenRouterTransport(ProviderCredential(value))
+            funding(client.request('GET','/api/v1/key'),client.request('GET','/api/v1/credits'))
+            checked_status='funding_verified'
+        else:
+            client=DeepInfraTransport(ProviderCredential(value))
+            metadata=client.request('GET','/v1/me/gpu_limit')
+            if not isinstance(metadata,dict) or not isinstance(metadata.get('limits'),dict):
+                raise AccessDenied('deepinfra_account_metadata_missing')
+            checked_status='inference_verified'
         with connection(self.vault._dsn) as conn:
             p=self.principal(conn,token)
             row=conn.execute('''SELECT * FROM gabriel_identity.personal_provider_secrets
@@ -43,20 +51,44 @@ class PersonalProviders:
                 ciphertext=EXCLUDED.ciphertext,checked=true,revoked_at=NULL,updated_at=clock_timestamp()''',
                 (p.organization_id,p.user_id,row['id'],provider,row['revision'],kid,nonce,cipher))
             _audit(conn,'personal_provider.stored',p,row['id'])
-            return dict(provider=provider,revision=row['revision'],status='funding_verified',scope='personal')
+            return dict(provider=provider,revision=row['revision'],status=checked_status,scope='personal')
 
-    def checked(self,conn,p,*,expected=None):
+    def checked(self,conn,p,provider=None,*,expected=None):
+        if provider is None:
+            preferred=conn.execute('''SELECT provider FROM gabriel_identity.personal_provider_secrets
+                WHERE organization_id=%s AND user_id=%s AND provider IN ('openrouter','deepinfra')
+                AND checked AND revoked_at IS NULL
+                ORDER BY CASE provider WHEN 'openrouter' THEN 0 ELSE 1 END LIMIT 1''',(p.organization_id,p.user_id)).fetchone()
+            provider=preferred['provider'] if preferred else None
+        if provider not in {'openrouter','deepinfra'}:raise AccessDenied('personal_provider_not_supported')
         row=conn.execute('''SELECT * FROM gabriel_identity.personal_provider_secrets
-            WHERE organization_id=%s AND user_id=%s AND provider='openrouter'
-            AND checked AND revoked_at IS NULL''',(p.organization_id,p.user_id)).fetchone()
+            WHERE organization_id=%s AND user_id=%s AND provider=%s
+            AND checked AND revoked_at IS NULL''',(p.organization_id,p.user_id,provider)).fetchone()
         if not row or expected is not None and (row['id'],row['revision'])!=expected:
             raise AccessDenied('personal_provider_current_checked_key_required')
         return row
 
-    def resolve(self,token):
+    def preferred(self,token):
         with connection(self.vault._dsn) as conn:
             p=self.principal(conn,token)
-            row=self.checked(conn,p)
+            row=conn.execute('''SELECT provider FROM gabriel_identity.personal_provider_secrets
+                WHERE organization_id=%s AND user_id=%s AND provider IN ('openrouter','deepinfra')
+                AND checked AND revoked_at IS NULL
+                ORDER BY CASE provider WHEN 'openrouter' THEN 0 ELSE 1 END LIMIT 1''',(p.organization_id,p.user_id)).fetchone()
+            if not row:raise AccessDenied('personal_provider_current_checked_key_required')
+            return row['provider']
+
+    def resolve(self,token,provider=None):
+        with connection(self.vault._dsn) as conn:
+            p=self.principal(conn,token)
+            if provider is None:
+                preferred=conn.execute('''SELECT provider FROM gabriel_identity.personal_provider_secrets
+                    WHERE organization_id=%s AND user_id=%s AND provider IN ('openrouter','deepinfra')
+                    AND checked AND revoked_at IS NULL
+                    ORDER BY CASE provider WHEN 'openrouter' THEN 0 ELSE 1 END LIMIT 1''',(p.organization_id,p.user_id)).fetchone()
+                provider=preferred['provider'] if preferred else None
+            if provider not in {'openrouter','deepinfra'}:raise AccessDenied('personal_provider_not_supported')
+            row=self.checked(conn,p,provider)
             value=ProviderCredential(self.vault._decrypt(conn,row))
             _audit(conn,'personal_provider.resolved',p,row['id'])
             return value,(row['id'],row['revision'])
@@ -68,10 +100,10 @@ class PersonalProviders:
                 WHERE organization_id=%s AND user_id=%s''',(p.organization_id,p.user_id)).fetchall()
             _audit(conn,'personal_provider.status_read',p)
             return [dict(provider=r['provider'],revision=r['revision'],scope='personal',
-                status='revoked' if r['revoked_at'] else 'funding_verified' if r['checked'] else 'validation_pending') for r in rows]
+                status='revoked' if r['revoked_at'] else 'funding_verified' if r['checked'] and r['provider']=='openrouter' else 'inference_verified' if r['checked'] else 'validation_pending') for r in rows]
 
     def revoke(self,token,provider='openrouter'):
-        if provider!='openrouter':raise AccessDenied('personal_provider_not_supported')
+        if provider not in {'openrouter','deepinfra'}:raise AccessDenied('personal_provider_not_supported')
         with connection(self.vault._dsn) as conn:
             p=self.principal(conn,token)
             conn.execute('''UPDATE gabriel_identity.personal_provider_secrets SET checked=false,

@@ -26,7 +26,7 @@ COPY gabriel/identity/specialist_qualification.py /app/gabriel/identity/
 COPY gabriel/identity/personal_providers.py gabriel/identity/specialist_agents.py gabriel/identity/schema_v29.sql /app/gabriel/identity/
 COPY gabriel/identity/schema_v27.sql gabriel/identity/schema_v28.sql gabriel/identity/browser_ai.py /app/gabriel/identity/
 COPY gabriel/hermes/runtime.py gabriel/hermes/server.py gabriel/hermes/prepare_runtime.py gabriel/hermes/Dockerfile gabriel/hermes/requirements.lock /app/gabriel/hermes/
-COPY gabriel/identity/hermes_qualification.py gabriel/identity/hermes_bridge.py gabriel/identity/hermes_supervisor.py gabriel/identity/schema_v30.sql gabriel/identity/schema_v31.sql /app/gabriel/identity/
+COPY gabriel/identity/hermes_qualification.py gabriel/identity/hermes_bridge.py gabriel/identity/hermes_supervisor.py gabriel/identity/schema_v30.sql gabriel/identity/schema_v31.sql gabriel/identity/schema_v32.sql gabriel/identity/schema_v33.sql /app/gabriel/identity/
 COPY gabriel/identity/installation.py /app/gabriel/identity/
 RUN mkdir -p /var/lib/gabriel-workbench && chown 10001:10001 /var/lib/gabriel-workbench && chmod 700 /var/lib/gabriel-workbench
 COPY gabriel/identity/workbench.py gabriel/identity/workbench_cli.py /app/gabriel/identity/
@@ -38,7 +38,7 @@ COPY gabriel/identity/memory.py gabriel/identity/schema_v15.sql /app/gabriel/ide
 COPY gabriel/identity/model_evaluation.py gabriel/identity/model_protocol.py gabriel/identity/model_routes.py gabriel/identity/model_transport.py gabriel/identity/model_worker.py /app/gabriel/identity/
 COPY gabriel/identity/model_input.py /app/gabriel/identity/
 COPY gabriel/identity/attack_patterns.py /app/gabriel/identity/
-COPY gabriel/identity/wazuh_events.py gabriel/identity/source_events.py gabriel/identity/console_orientation.py /app/gabriel/identity/
+COPY gabriel/identity/wazuh_events.py /app/gabriel/identity/
 COPY gabriel/identity/attack_pattern_runs.py gabriel/identity/schema_v23.sql /app/gabriel/identity/
 COPY gabriel/identity/browser_events.py gabriel/identity/browser_specialists.py gabriel/identity/schema_v24.sql gabriel/identity/schema_v26.sql /app/gabriel/identity/
 COPY gabriel/identity/specialist_analysis_runs.py gabriel/identity/schema_v20.sql /app/gabriel/identity/
@@ -48,21 +48,18 @@ COPY gabriel/identity/coordinator.py gabriel/identity/schema_v17.sql gabriel/ide
 COPY gabriel/identity/model_budget.py gabriel/identity/budget_cli.py gabriel/identity/schema_v16.sql /app/gabriel/identity/
 RUN python -c "import ast,pathlib; [ast.parse(p.read_text(),filename=str(p)) for p in pathlib.Path('/app/gabriel').rglob('*.py')]"
 COPY gabriel/toolbox/ /app/gabriel/toolbox/
-COPY gabriel/identity/investigation_tools.py gabriel/identity/grounded_skills.py gabriel/identity/reviewed_memory.py gabriel/identity/skill_catalog.py gabriel/identity/catalog_skills.py gabriel/identity/catalog_dfir.py gabriel/identity/catalog_dfir_artifacts.py gabriel/identity/dfir_bounded_parsers.py gabriel/identity/catalog_detection.py gabriel/identity/catalog_detection_sources.py gabriel/identity/catalog_identity.py gabriel/identity/catalog_identity_extended.py gabriel/identity/catalog_scope.py gabriel/identity/catalog_scope_extended.py gabriel/identity/catalog_hardening.py gabriel/identity/catalog_telemetry.py gabriel/identity/catalog_telemetry_triage.py gabriel/identity/catalog_telemetry_triage_manifest.json gabriel/identity/catalog_intelligence.py gabriel/identity/catalog_intel_hunt.py gabriel/identity/catalog_exposure.py gabriel/identity/catalog_exposure_cloud_extended.py gabriel/identity/catalog_cloud.py gabriel/identity/catalog_timeline.py gabriel/identity/catalog_hunting.py gabriel/identity/catalog_recovery.py gabriel/identity/catalog_response_recovery.py gabriel/identity/skill_roadmap.json gabriel/identity/catalog_exposure_cloud_manifest.json gabriel/identity/catalog_response_recovery.integration.json /app/gabriel/identity/
-COPY gabriel/identity/catalog_fragments/ /app/gabriel/identity/catalog_fragments/
-COPY gabriel/identity/catalog_integration/ /app/gabriel/identity/catalog_integration/
+COPY gabriel/identity/investigation_tools.py gabriel/identity/grounded_skills.py gabriel/identity/reviewed_memory.py gabriel/identity/skill_catalog.py gabriel/identity/catalog_skills.py gabriel/identity/catalog_dfir.py gabriel/identity/catalog_detection.py gabriel/identity/catalog_telemetry.py gabriel/identity/catalog_intelligence.py gabriel/identity/catalog_exposure.py gabriel/identity/catalog_cloud.py gabriel/identity/catalog_timeline.py gabriel/identity/catalog_hunting.py gabriel/identity/catalog_recovery.py gabriel/identity/skill_roadmap.json /app/gabriel/identity/
 COPY gabriel/identity/investigation_skills/ /app/gabriel/identity/investigation_skills/
 USER 10001:10001
 ENTRYPOINT ["python", "-m", "gabriel.identity.cli"]
 
 FROM runtime AS test
 USER 0:0
-RUN apk add --no-cache openssl \
-    && pip install --no-cache-dir pytest==8.3.5 pytest-cov==6.0.0 pytest-asyncio==0.25.3
+RUN pip install --no-cache-dir pytest==8.3.5 pytest-cov==6.0.0 pytest-asyncio==0.25.3
 ENV PYTHONPATH=/app:/repo
 WORKDIR /repo
 COPY conftest.py pytest.ini /repo/
-COPY tooling/scripts/pytest_isolated.py tooling/scripts/gabriel_install.py tooling/scripts/gabriel_identity_prepare.py tooling/scripts/gabriel_provider_keys.py tooling/scripts/gabriel_evidence_keys.py tooling/scripts/gabriel_toolbus_prepare.py /repo/tooling/scripts/
+COPY tooling/scripts/pytest_isolated.py tooling/scripts/gabriel_identity_prepare.py tooling/scripts/gabriel_provider_keys.py tooling/scripts/gabriel_evidence_keys.py /repo/tooling/scripts/
 COPY testing/gabriel_identity/ /repo/testing/gabriel_identity/
 COPY testing/gabriel_model_lab/ /repo/testing/gabriel_model_lab/
 COPY gabriel/browser_extension/ /repo/gabriel/browser_extension/
