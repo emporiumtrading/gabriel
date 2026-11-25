@@ -444,12 +444,12 @@ environment:
   - MSF_PROGRESS_PORT=8013
 
 ports:
-  - "8000:8000"   # network_recon (curl + naabu)
-  - "8002:8002"   # nuclei
-  - "8003:8003"   # metasploit
-  - "8004:8004"   # nmap
-  - "8005:8005"   # playwright (browser automation)
-  - "8013:8013"   # metasploit progress endpoint
+  - "127.0.0.1:8000:8000"   # network_recon (curl + naabu)
+  - "127.0.0.1:8002:8002"   # nuclei
+  - "127.0.0.1:8003:8003"   # metasploit
+  - "127.0.0.1:8004:8004"   # nmap
+  - "127.0.0.1:8005:8005"   # playwright (browser automation)
+  - "127.0.0.1:8013:8013"   # metasploit progress endpoint
 ```
 
 To change ports or settings, edit `docker-compose.yml` directly.
