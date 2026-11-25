@@ -25,6 +25,7 @@ The interface uses Gabriel's own halo and winged-shield emblem, midnight-blue su
 - [Understand specialist assessments](docs/readmes/README.GABRIEL_SPECIALISTS.md)
 - [Review browser investigation, learning and AI status](docs/readmes/GABRIEL_BROWSER_CAPABILITY_STATUS.md)
 - [Review implementation and acceptance status](docs/readmes/GABRIEL_REQUIREMENT_STATUS.md)
+- [Review pentest and novel-behavior detection](docs/readmes/GABRIEL_PENTEST_DETECTION.md)
 
 ## What is available
 
@@ -35,6 +36,7 @@ The interface uses Gabriel's own halo and winged-shield emblem, midnight-blue su
 | Browser companion | Up to eight paired tabs, popup-closed scheduled review, same-origin read-only discovery, changed-content capture, Pause and Stop |
 | Specialists | Twelve designated AI-agent roles with bounded read-tool loops and personal analyst keys; exact model activation awaits qualification. Local-rule reviews remain available. |
 | AI triage connection | Budgeted browser-to-model application bridge, minimized candidate signals and encrypted answers; production activation awaits qualification |
+| Pentest and novel-behavior detection | Evidence-bound candidate correlations for authorized assessment sequences and novel exploit-like behavior; results remain unqualified hypotheses and never execute payloads |
 | Organizational knowledge | Automatic browser proposals, human review, approved-reference context in later reviews, expiry and forgetting controls |
 | Operations | Owner enrollment, role-scoped access, audit history, spending controls and tested backup/restore paths |
 
@@ -67,4 +69,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), [the operati
 ## License and provenance
 
 See [LICENSE](LICENSE) and [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md). Upstream copyright and third-party notices remain intact. Gabriel's defensive behavior and release status are documented independently of inherited components.
+
 
