@@ -13,9 +13,9 @@ the exact-source Docker gate; no synthetic test counts as a real-console pass.
 | Alert triage | Open high/critical alert review with benign alternative | Event-based attack correlation, model reasoning and operational prioritization |
 | Incident scoping | Supplied distinct entity-key count and event interval | Validated identity resolution, cross-console correlations and affected scope |
 | Threat intelligence | Reported matches checked against supplied validity times | Vetted current attributable intelligence enrichment and contextual evaluation |
-| Threat hunting | Activity-category review and a hypothesis for an existing search | Versioned hunt playbooks, search selection/execution and evidence-driven iterations |
-| DFIR evidence | Reported integrity/custody discrepancies | Admitted collection workflows, actual tool integrations and forensic timelines |
-| Detection engineering | Expected versus observed test outcomes; misses and unexpected matches | Versioned rule drafting/translation, independent test cohorts and review |
+| Threat hunting | Activity-category review, pentest/novel-process hypotheses and a hypothesis for an existing search | Versioned hunt playbooks, search selection/execution and evidence-driven iterations |
+| DFIR evidence | Reported integrity/custody discrepancies plus malware, memory and exploit-like artifact triage | Admitted collection workflows, actual tool integrations and forensic timelines |
+| Detection engineering | Expected versus observed test outcomes, misses, unexpected matches and novel-behavior rule-gap review | Versioned rule drafting/translation, independent test cohorts and review |
 | Exposure/vulnerability | Reported severity, reachability and mitigation review | Validated exposure/asset ownership and supported integration semantics |
 | Identity/access | Authorization review for privilege/MFA changes; reported authentication-failure counts | Credential abuse, session correlation and attack-specific investigations |
 | Cloud/container/supply chain | Reported cloud/workload/component finding and authorization review | Actual baseline comparison, provenance tools and deployment correlation |
@@ -53,8 +53,7 @@ python -m gabriel.identity.case_cli specialist-run \
 The UUID request is bound to actor, case, role and input. Concurrent repetitions
 return one immutable record. Viewer access is historical summary only; current
 write authority and an open case are required for execution. Both new and old
-records share the 128-run case limit. The coordinator remains its earlier fixed
-two-step local plan; full specialist scheduling/disagreement handling is open.
+records share the 128-run case limit. The twelve-role coordinator now schedules every role against the same approved evidence set; the collaboration receipt preserves disagreement and handoffs without collapsing them into a vote.
 
 ## Cross-specialist detective synthesis
 
