@@ -224,11 +224,13 @@ def test_workbench_stop_is_not_blocked_by_agent_provider_io(tenant,cases,case,ev
             # finish its first request on a busy ARM runner.  Keep this a
             # bounded responsiveness check without making startup latency look
             # like a workbench deadlock.
-            assert active.wait(10)
+            assert active.wait(10), 'ERROR agent start did not enter the provider-call boundary'
             stopped=pool.submit(post,'/cases/'+str(case['id'])+'/agents/'+str(uuid4())+'/stop',{})
-            assert stopped.result(timeout=5)=='200 OK'
+            stopped_status=stopped.result(timeout=5)
+            assert stopped_status=='200 OK', f'ERROR Stop response was {stopped_status!r}'
         finally:release.set()
-        assert running.result(timeout=10)=='200 OK'
+        running_status=running.result(timeout=10)
+        assert running_status=='200 OK', f'ERROR provider-bound start response was {running_status!r}'
 
 
 def test_memory_read_tool_without_supported_history_exports_no_contents(tenant,cases,case,evidence,setup):
