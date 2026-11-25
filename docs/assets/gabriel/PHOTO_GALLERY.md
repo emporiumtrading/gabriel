@@ -1,8 +1,20 @@
 # Gabriel photo gallery
 
-This gallery collects the current Gabriel product photography in one place. It uses the repository's own interface captures and brand artwork—not generic AI-generated stock images. Screens marked **generated-data capture** show the real workbench rendered with synthetic test data; they are not evidence of live-console coverage, production AI qualification, or a completed response action.
+This gallery collects the current Gabriel product photography in one place. It uses the repository's own interface captures and brand artwork—not generic AI-generated stock images. Every photo is assigned to a workflow stage and has a description. Screens marked **generated-data capture** show the real workbench rendered with synthetic test data; they are not evidence of live-console coverage, production AI qualification, or a completed response action.
 
-## Product identity
+## Photo stages
+
+| Stage | Purpose | Repository assets |
+| --- | --- | --- |
+| 0 — Product identity | Establish Gabriel's visual identity | `mark.svg`, `banner.svg`, `social-preview.png` |
+| 1 — Preflight and assignment | Confirm scope, choose a specialist, and select an allowed tool | `preview-preflight.png`, `preview-specialists.png`, `select-investigation-tool.png` |
+| 2 — Investigation | Review the queue, case workspace, and verified local findings | `investigations.png`, `case-workspace.png`, `verified-tool-findings.png` |
+| 3 — Specialist analysis | Review specialist assessments and assign the next action | `specialist-assessments.png`, `analyst-next-actions.png` |
+| 4 — Evidence and learning | Inspect provenance and review references before reuse | `case-provenance.png`, `review-before-learning.png` |
+| 5 — Governance and response | Review spending controls and proposed response approval | `spending-controls.png`, `preview-response.png` |
+| 6 — Mobile review | Continue analyst review from a smaller screen | `mobile-case.png`, `mobile-analyst-review.png` |
+
+## Stage 0 — Product identity
 
 ### Gabriel mark
 
@@ -22,7 +34,27 @@ The repository banner used for the project landing page and documentation.
 
 The share-card artwork for repository links and project announcements.
 
-## Workbench screens
+## Stage 1 — Preflight and assignment
+
+### Preflight before autonomous investigation
+
+![Stage 1: preflight before autonomous investigation](actions/preview-preflight.png)
+
+**Design preview.** Illustrates the consent and readiness review before a browser investigation begins. The control is not presented as an implemented response action.
+
+### Supervisor assignments and analyst progress
+
+![Stage 1: supervisor assignments and analyst progress](actions/preview-specialists.png)
+
+**Design preview.** Illustrates Hermes coordinating bounded specialist assignments while keeping analyst progress visible.
+
+### Select an investigation tool
+
+![Stage 1: select an investigation tool](actions/select-investigation-tool.png)
+
+**Generated-data capture.** Shows a specialist selecting an allowed local investigation tool before execution.
+
+## Stage 2 — Investigation
 
 ### Investigation queue
 
@@ -36,83 +68,69 @@ The share-card artwork for repository links and project announcements.
 
 **Generated-data capture.** Shows the case view that brings evidence, timeline, questions, and provenance together.
 
-### Specialist assessments
-
-![Gabriel specialist assessments](screenshots/specialist-assessments.png)
-
-**Generated-data capture.** Shows bounded specialist findings with confidence and review status visible to the analyst.
-
-### Spending controls
-
-![Gabriel spending controls](screenshots/spending-controls.png)
-
-**Generated-data capture.** Shows provider budgets, model-routing controls, and cost guardrails.
-
-### Case provenance
-
-![Gabriel case provenance](screenshots/case-provenance.png)
-
-**Generated-data capture.** Shows the evidence trail behind a finding, including source, custody, and review metadata.
-
-### Mobile case review
-
-![Gabriel mobile case review](screenshots/mobile-case.png)
-
-**Generated-data capture.** Shows the responsive case-review layout for a smaller screen.
-
-## Investigation workflow photos
-
-### Select an investigation tool
-
-![Select an investigation tool](actions/select-investigation-tool.png)
-
-**Generated-data capture.** Shows a specialist selecting an allowed local investigation tool before execution.
-
 ### Verified tool findings
 
-![Verified tool findings](actions/verified-tool-findings.png)
+![Stage 2: verified tool findings](actions/verified-tool-findings.png)
 
 **Generated-data capture.** Shows the analyst reviewing an encrypted local log-analysis result.
 
+## Stage 3 — Specialist analysis
+
+### Specialist assessments
+
+![Stage 3: Gabriel specialist assessments](screenshots/specialist-assessments.png)
+
+**Generated-data capture.** Shows bounded specialist findings with confidence and review status visible to the analyst.
+
 ### Analyst next actions
 
-![Analyst next actions](actions/analyst-next-actions.png)
+![Stage 3: analyst next actions](actions/analyst-next-actions.png)
 
 **Generated-data capture.** Shows ownership assignment, finding recording, and the next investigation question.
 
-### Mobile analyst review
+## Stage 4 — Evidence and learning
 
-![Mobile analyst review](actions/mobile-analyst-review.png)
+### Case provenance
 
-**Generated-data capture.** Shows investigation questions and review controls in the mobile layout.
+![Stage 4: Gabriel case provenance](screenshots/case-provenance.png)
+
+**Generated-data capture.** Shows the evidence trail behind a finding, including source, custody, and review metadata.
 
 ### Review before learning
 
-![Review before learning](actions/review-before-learning.png)
+![Stage 4: review before learning](actions/review-before-learning.png)
 
 **Generated-data capture.** Shows a proposed organizational reference before an analyst approves reuse.
 
-## Clearly labeled workflow concepts
+## Stage 5 — Governance and response
 
-The following three images are **design previews**, not implemented response controls. They communicate the intended Hermes-supervised workflow and remain visibly separated from verified workbench captures.
+### Spending controls
 
-### Preflight before autonomous investigation
+![Stage 5: Gabriel spending controls](screenshots/spending-controls.png)
 
-![Preflight before autonomous investigation](actions/preview-preflight.png)
-
-Illustrates the consent and readiness review before a browser investigation begins.
-
-### Supervisor assignments and analyst progress
-
-![Supervisor assignments and analyst progress](actions/preview-specialists.png)
-
-Illustrates Hermes coordinating bounded specialist assignments while keeping analyst progress visible.
+**Generated-data capture.** Shows provider budgets, model-routing controls, and cost guardrails.
 
 ### Proposed response and analyst approval
 
-![Proposed response and analyst approval](actions/preview-response.png)
+![Stage 5: proposed response and analyst approval](actions/preview-response.png)
 
-Illustrates a proposed response awaiting an explicit analyst decision; it does not execute a response action.
+**Design preview.** Illustrates a proposed response awaiting an explicit analyst decision; it does not execute a response action.
+
+## Stage 6 — Mobile review
+
+The mobile photos show review continuity, not autonomous response from a phone.
+
+### Mobile case review
+
+![Stage 6: Gabriel mobile case review](screenshots/mobile-case.png)
+
+**Generated-data capture.** Shows the responsive case-review layout for a smaller screen.
+
+### Mobile analyst review
+
+![Stage 6: mobile analyst review](actions/mobile-analyst-review.png)
+
+**Generated-data capture.** Shows investigation questions and review controls in the mobile layout.
 
 ## Evidence and limitations
 
