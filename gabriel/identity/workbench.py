@@ -542,7 +542,7 @@ class Workbench:
                 run=self.service.run_attack_review(self._token,case_id,fields['request_id'],fields['input_evidence_id'])
                 return '303 See Other',b'',[('Location',base+'/'+run['id'])]
             if method!='GET': raise AccessDenied('workbench_route_denied')
-            body='<p class="notice">Historical review of supplied events. Patterns are hypotheses that need investigation. Source authenticity, current visibility and detection quality remain unverified. No model or response action is enabled here.</p>'
+            body='<p class="notice">Historical review of supplied events, including authorized assessment sequences and novel exploit-like behavior. Patterns are hypotheses that need investigation; a possible zero-day label is not proof that a zero-day exists. Source authenticity, current visibility and detection quality remain unverified. No model, exploit or response action is enabled here.</p>'
             if run_id:
                 run=self.service.get_attack_review(self._token,case_id,run_id)
                 result=run['result']
@@ -779,4 +779,5 @@ def serve_workbench(configuration,certificate,key,bind='127.0.0.1:8444'):
                 self.cfg.set(name,value)
         def load(self): return load_workbench(configuration)
     Application().run()
+
 
