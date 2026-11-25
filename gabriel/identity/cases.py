@@ -79,6 +79,10 @@ class CaseService(IdentityService):
         from gabriel.identity.coordinator import complete
         return complete(self,token,run_id)
 
+    def collaborate_coordinator(self,token,run_id):
+        from gabriel.identity.coordinator import collaborate
+        return collaborate(self,token,run_id)
+
     def propose_memory(self,token,case_id,evidence_id,request_id,kind,scope,topic,**options):
         from gabriel.identity.memory import propose
         return propose(self,token,case_id,evidence_id,request_id,kind,scope,topic,**options)
