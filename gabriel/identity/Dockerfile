@@ -44,7 +44,7 @@ COPY gabriel/identity/browser_events.py gabriel/identity/browser_specialists.py 
 COPY gabriel/identity/specialist_analysis_runs.py gabriel/identity/schema_v20.sql /app/gabriel/identity/
 COPY gabriel/identity/provider_onboarding.py gabriel/identity/schema_v19.sql gabriel/identity/specialist_analysis.py /app/gabriel/identity/
 COPY gabriel/identity/model_answers.py gabriel/identity/schema_v18.sql /app/gabriel/identity/
-COPY gabriel/identity/coordinator.py gabriel/identity/schema_v17.sql gabriel/identity/schema_v25.sql /app/gabriel/identity/
+COPY gabriel/identity/coordinator.py gabriel/identity/specialist_collaboration.py gabriel/identity/schema_v17.sql gabriel/identity/schema_v25.sql /app/gabriel/identity/
 COPY gabriel/identity/model_budget.py gabriel/identity/budget_cli.py gabriel/identity/schema_v16.sql /app/gabriel/identity/
 RUN python -c "import ast,pathlib; [ast.parse(p.read_text(),filename=str(p)) for p in pathlib.Path('/app/gabriel').rglob('*.py')]"
 COPY gabriel/toolbox/ /app/gabriel/toolbox/
