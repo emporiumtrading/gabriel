@@ -4,6 +4,8 @@
     {
       "file": "select-investigation-tool.png",
       "title": "Choose a specialist and run an allowed local tool",
+      "stage": "1-preflight-assignment",
+      "description": "A specialist selects an allowed local investigation tool before execution.",
       "kind": "actual_generated_data",
       "sha256": "65a5b116b2bbc09a6a3fb775d91f653cbcea87539410f099cddb16cd9d50d3db",
       "width": 1440,
@@ -12,6 +14,8 @@
     {
       "file": "verified-tool-findings.png",
       "title": "Review the actual encrypted log-analysis result",
+      "stage": "2-investigation",
+      "description": "The analyst reviews an encrypted local log-analysis result.",
       "kind": "actual_generated_data",
       "sha256": "436343cb0326921403eb53c7139e6c1000cddc04f9e583d194314574cafdb064",
       "width": 1440,
@@ -20,6 +24,8 @@
     {
       "file": "analyst-next-actions.png",
       "title": "Assign ownership, record findings and ask the next question",
+      "stage": "3-specialist-analysis",
+      "description": "Ownership assignment, finding recording and the next investigation question.",
       "kind": "actual_generated_data",
       "sha256": "6d40e1155437405c9950d726a73667fba8dc990afa6a73ff6584fbf82482ee69",
       "width": 1440,
@@ -28,6 +34,8 @@
     {
       "file": "mobile-analyst-review.png",
       "title": "Review investigation questions on mobile",
+      "stage": "6-mobile-review",
+      "description": "Investigation questions and review controls in the mobile layout.",
       "kind": "actual_generated_data",
       "sha256": "06e6f34bba64c8f5a35dc0e86bae1a848f80041b338aa4e1c1b8e7c9bacf206d",
       "width": 390,
@@ -36,6 +44,8 @@
     {
       "file": "review-before-learning.png",
       "title": "Review a proposed reference before reuse",
+      "stage": "4-evidence-learning",
+      "description": "A proposed organizational reference is reviewed before reuse.",
       "kind": "actual_generated_data",
       "sha256": "a1b80fb600ecbfa0109fc037d4661f521e4528d3473e3e8930697b8894d2c47d",
       "width": 1440,
@@ -44,6 +54,8 @@
     {
       "file": "preview-preflight.png",
       "title": "Preflight before autonomous investigation",
+      "stage": "1-preflight-assignment",
+      "description": "Illustrative consent and readiness review before a browser investigation.",
       "kind": "illustrative_design_not_implemented",
       "sha256": "5ab930e8b3452b8b9f3c0d922e791f41eedf020cfa4c69dd522c0e5e577ca1e8",
       "width": 1440,
@@ -52,6 +64,8 @@
     {
       "file": "preview-specialists.png",
       "title": "Supervisor assignments and analyst progress",
+      "stage": "1-preflight-assignment",
+      "description": "Illustrative Hermes coordination of bounded specialist assignments.",
       "kind": "illustrative_design_not_implemented",
       "sha256": "45b00f29ad69e9a9da3da1f066257d8f4f9a95cc25a2cb6a9e992ede4dc7c608",
       "width": 1440,
@@ -60,6 +74,8 @@
     {
       "file": "preview-response.png",
       "title": "Proposed response and analyst approval",
+      "stage": "5-governance-response",
+      "description": "Illustrative proposed response awaiting an explicit analyst decision.",
       "kind": "illustrative_design_not_implemented",
       "sha256": "e26938f6fe972ded152852e0f2c7f194cd6fcf0b85e69d2f0f8d55109b35f4fd",
       "width": 1440,
