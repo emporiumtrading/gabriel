@@ -203,6 +203,17 @@ def test_workbench_stop_is_not_blocked_by_agent_provider_io(tenant,cases,case,ev
     from gabriel.identity.workbench import Workbench,COOKIE,ticket_hash
     app=Workbench(cases,setup['token'],dict(endpoint='https://localhost:8444',ticket_digest=ticket_hash('gwt1_'+'a'*43)),provider_vault=setup['vault'])
     app._cookie='generated-agent-ui-cookie';app._claimed=True
+    route_trace=[]
+    original_route=app._route
+    def traced_route(environ):
+        try:
+            result=original_route(environ)
+            route_trace.append('returned '+result[0])
+            return result
+        except BaseException as error:
+            route_trace.append(type(error).__name__+':'+str(error))
+            raise
+    monkeypatch.setattr(app,'_route',traced_route)
     active=Event();release=Event()
     def slow(*args,**kwargs):
         active.set();assert release.wait(10)
@@ -227,7 +238,7 @@ def test_workbench_stop_is_not_blocked_by_agent_provider_io(tenant,cases,case,ev
             # finish its first request on a busy ARM runner.  Keep this a
             # bounded responsiveness check without making startup latency look
             # like a workbench deadlock.
-            assert active.wait(10), f'ERROR agent start did not enter the provider-call boundary; done={running.done()} status={running_status!r}'
+            assert active.wait(10), f'ERROR agent start did not enter the provider-call boundary; done={running.done()} status={running_status!r} trace={route_trace!r}'
             stopped=pool.submit(post,'/cases/'+str(case['id'])+'/agents/'+str(uuid4())+'/stop',{})
             stopped_status=stopped.result(timeout=5)
             assert stopped_status=='200 OK', f'ERROR Stop response was {stopped_status!r}'
