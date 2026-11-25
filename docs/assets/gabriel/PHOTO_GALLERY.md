@@ -46,7 +46,7 @@ The share-card artwork for repository links and project announcements.
 
 ![Stage 1: supervisor assignments and analyst progress](actions/preview-specialists.png)
 
-**Design preview.** Illustrates Hermes coordinating bounded specialist assignments while keeping analyst progress visible.
+**Design preview.** Illustrates Gabriel coordinating bounded specialist assignments while keeping analyst progress visible.
 
 ### Select an investigation tool
 
@@ -135,3 +135,4 @@ The mobile photos show review continuity, not autonomous response from a phone.
 ## Evidence and limitations
 
 The image checksums and capture provenance are maintained in the adjacent [screen manifest](screenshots/manifest.json) and [action manifest](actions/manifest.json). No customer telemetry, provider credentials, or paid model calls were used for these captures. Refer to the repository README and security documentation for the current qualification and operational status.
+
