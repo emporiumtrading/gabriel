@@ -1,28 +1,28 @@
 # Gabriel screen gallery
 
-Actual Gabriel workbench screens captured in the isolated Chrome browser lab using generated data. These images demonstrate the interface; they do not establish production readiness, live threat detection or model qualification. The source checkout and image hashes are recorded in [manifest.json](manifest.json).
+Actual Gabriel workbench screens captured in the isolated Chrome browser lab using generated data. The photos are staged as part of the user journey: investigation, specialist analysis, governance, evidence, and mobile review. These images demonstrate the interface; they do not establish production readiness, live threat detection or model qualification. The source checkout and image hashes are recorded in [manifest.json](manifest.json).
 
-## Investigation queue
+## Stage 2 — Investigation
 
 ![Investigation queue](investigations.png)
 
-## Case workspace
+## Stage 2 — Investigation
 
 ![Case workspace](case-workspace.png)
 
-## Specialist assessments
+## Stage 3 — Specialist analysis
 
 ![Specialist assessments](specialist-assessments.png)
 
-## Spending controls
+## Stage 5 — Governance and response
 
 ![Spending controls](spending-controls.png)
 
-## Case provenance
+## Stage 4 — Evidence and learning
 
 ![Case provenance](case-provenance.png)
 
-## Mobile layout
+## Stage 6 — Mobile review
 
 ![Mobile layout](mobile-case.png)
 
